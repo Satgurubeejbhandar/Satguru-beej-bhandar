@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satguru AI - कृषि फसल डॉक्टर | सतगुरु बीज भंडार</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        body {
+            background: #e8f5e9;
+            padding: 10px;
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+        }
+
+        .main-box {
+            max-width: 620px;
+            margin: 10px auto;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border-top: 6px solid #2e7d32;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1b5e20, #388e3c);
+            color: white;
+            text-align: center;
+            padding: 20px 15px;
+        }
+        .header h1 { font-size: 22px; margin-bottom: 4px; }
+        .header p { font-size: 13px; opacity: 0.9; }
+
+        /* Form Area */
+        .form-area { padding: 20px; }
+
+        .label {
+            font-size: 14px;
+            font-weight: 700;
+            color: #2e7d32;
+            margin-bottom: 6px;
+            display: block;
+        }
+        .label span { color: #d32f2f; }
+
+        .crop-select, .age-input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid #c8e6c9;
+            border-radius: 8px;
+            font-size: 15px;
+            margin-bottom: 15px;
+            background: #f9fdf9;
+            color: #333;
+            outline: none;
+            transition: 0.2s;
+        }
+        .crop-select:focus, .age-input:focus {
+            border-color: #2e7d32;
+            box-shadow: 0 0 0 3px rgba(46,125,50,0.15);
+        }
+
+        .custom-crop {
+            display: none;
+            margin-bottom: 15px;
+        }
+
+        .age-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .age-row .age-input { margin-bottom: 0; flex: 1; }
+        .age-unit {
+            font-size: 15px;
+            font-weight: 700;
+            color: #555;
+            white-space: nowrap;
+        }
+        .age-hint {
+            font-size: 11px;
+            color: #666;
+            margin-top: -10px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .upload-box {
+            border: 2px dashed #4caf50;
+            background: #f1f8e9;
+            padding: 25px 15px;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: 0.3s;
+        }
+        .upload-box:hover { background: #dcedc8; }
+        .upload-box .icon { font-size: 36px; }
+        .upload-box .text { font-size: 14px; color: #555; margin-top: 5px; }
+        .upload-box .hint { font-size: 11px; color: #999; margin-top: 3px; }
+
+        .hidden-file-input { display: none; }
+
+        #preview {
+            max-width: 100%;
+            max-height: 220px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+            object-fit: contain;
+            border: 2px solid #c8e6c9;
+        }
+
+        .btn-diagnose {
+            width: 100%;
+            background: linear-gradient(135deg, #2e7d32, #1b5e20);
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 17px;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-diagnose:hover { background: linear-gradient(135deg, #1b5e20, #0d3810); }
+        .btn-diagnose:disabled { background: #a5d6a7; cursor: not-allowed; }
+
+        .btn-speak {
+            width: 100%;
+            background: linear-gradient(135deg, #ef6c00, #e65100);
+            color: white;
+            border: none;
+            padding: 13px;
+            font-size: 15px;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 12px;
+            display: none;
+        }
+        .btn-speak:hover { background: linear-gradient(135deg, #e65100, #bf360c); }
+
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 18px;
+            color: #1b5e20;
+            font-weight: 700;
+            font-size: 15px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        #result {
+            display: none;
+            margin-top: 20px;
+            padding: 18px;
+            background: #ffffff;
+            border: 1px solid #c8e6c9;
+            border-radius: 10px;
+            line-height: 1.75;
+            font-size: 14.5px;
+            color: #263238;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        #result h3 {
+            color: #1b5e20;
+            margin: 12px 0 6px 0;
+            font-size: 16px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 4px;
+        }
+
+        #result ul, #result ol {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .tag-wrapper { margin-bottom: 12px; }
+        .info-tag {
+            display: inline-block;
+            background: #e8f5e9;
+            color: #1b5e20;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 2px 4px 2px 0;
+        }
+
+        .warning-box {
+            background: #fff8e1;
+            border-left: 5px solid #ff8f00;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 15px;
+            font-size: 13px;
+            color: #6d4c00;
+        }
+
+        /* AI Disclaimer Box */
+        .ai-disclaimer {
+            background: #ffeaeb;
+            border-left: 5px solid #d32f2f;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #b71c1c;
+            font-weight: bold;
+        }
+
+        .ref-box {
+            background: #e3f2fd;
+            border-left: 5px solid #1565c0;
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-top: 12px;
+            font-size: 12.5px;
+            color: #0d47a1;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: max(12px, env(safe-area-inset-bottom));
+            color: #2e7d32;
+            font-size: 14px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .error-text {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+
+        /* ========== MOBILE + DESKTOP PERFECT ========== */
+
+        /* छोटे फोन (320–400px) */
+        @media (max-width: 400px) {
+            body { padding: 6px; }
+            .main-box { margin: 6px auto; border-radius: 14px; }
+            .header { padding: 16px 12px; }
+            .header h1 { font-size: 18px; }
+            .header p { font-size: 11px; }
+            .form-area { padding: 14px; }
+            .label { font-size: 13px; }
+            .crop-select, .age-input {
+                font-size: 14px;
+                padding: 10px 12px;
+                margin-bottom: 12px;
+            }
+            .upload-box { padding: 18px 12px; }
+            .upload-box .icon { font-size: 30px; }
+            .upload-box .text { font-size: 13px; }
+            .btn-diagnose { font-size: 15px; padding: 13px; }
+            .btn-speak { font-size: 14px; padding: 11px; }
+            #result { padding: 14px; font-size: 14px; }
+            .ai-disclaimer { font-size: 13px; padding: 10px; }
+            .info-tag { font-size: 11px; }
+        }
+
+        /* टेबलेट / बड़े फोन */
+        @media (min-width: 600px) {
+            .main-box { max-width: 640px; }
+        }
+
+        /* डेस्कटॉप */
+        @media (min-width: 900px) {
+            body {
+                padding: 24px 16px;
+                min-height: 100vh;
+            }
+            .main-box {
+                max-width: 720px;
+                margin: 20px auto;
+                box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+            }
+            .header { padding: 24px 20px; }
+            .header h1 { font-size: 26px; }
+            .header p { font-size: 14px; }
+            .form-area { padding: 28px; }
+            .label { font-size: 15px; }
+            .crop-select, .age-input { font-size: 16px; padding: 13px 16px; }
+            .btn-diagnose { font-size: 18px; padding: 16px; }
+            .btn-speak { font-size: 16px; padding: 14px; }
+            #preview { max-height: 280px; }
+            #result { font-size: 15px; padding: 22px; }
+        }
+
+        /* बहुत पतली स्क्रीन पर age-unit न टूटे */
+        @media (max-width: 340px) {
+            .age-unit { font-size: 13px; }
+            .age-hint { font-size: 10px; }
+        }
+</style>
+
+<style>
+.preview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:8px 0 15px}.preview-card{border:1px solid #c8e6c9;border-radius:10px;padding:7px;background:#f9fdf9;position:relative}.preview-card img{width:100%;height:120px;object-fit:cover;border-radius:7px;display:block}.preview-meta{font-size:11px;color:#455a64;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.remove-image{width:100%;margin-top:6px;border:0;border-radius:6px;padding:6px;background:#eeeeee;color:#b71c1c;cursor:pointer}.welcome-line{font-weight:700;color:#1b5e20;background:#e8f5e9;border-radius:7px;padding:9px 10px;margin-bottom:10px}.error-text{white-space:pre-line}.result-note{white-space:pre-line}@media(max-width:400px){.preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.preview-card img{height:100px}}
+</style>
+</head>
+<body>
+
+<div class="main-box">
+
+    <!-- ===== HEADER ===== -->
+    <div class="header">
+        <h1>🌿 Satguru AI फसल डॉक्टर</h1>
+        <p>सतगुरु बीज भंडार — ICAR आधारित कृषि सलाह सेवा</p>
+    </div>
+
+    <!-- ===== FORM ===== -->
+    <div class="form-area">
+
+        <!-- 1. Crop Name Dropdown -->
+        <label for="cropName" class="label">🌾 फसल का नाम चुनें <span>*</span></label>
+        <select id="cropName" class="crop-select" onchange="checkCustomCrop()">
+            <option value="">-- फसल चुनें (130+ फसलें) --</option>
+            
+            <optgroup label="🌾 अनाज और मोटे अनाज (Cereals & Millets)">
+                <option value="गेहूँ">गेहूँ (Wheat)</option>
+                <option value="धान">धान / चावल (Paddy/Rice)</option>
+                <option value="मक्का">मक्का (Maize)</option>
+                <option value="बाजरा">बाजरा (Pearl Millet)</option>
+                <option value="ज्वार">ज्वार (Sorghum)</option>
+                <option value="जौ">जौ (Barley)</option>
+                <option value="जई">जई (Oats)</option>
+                <option value="रागी">रागी / मडुआ (Ragi)</option>
+                <option value="कुट्टू">कुट्टू (Buckwheat)</option>
+                <option value="चेना">चेना / प्रसो बाजरा (Proso Millet)</option>
+                <option value="सावां">सावां (Barnyard Millet)</option>
+                <option value="कंगनी">कंगनी (Foxtail Millet)</option>
+                <option value="कोदो">कोदो (Kodo Millet)</option>
+                <option value="कुटकी">कुटकी (Little Millet)</option>
+            </optgroup>
+
+            <optgroup label="🌱 दलहन फसलें (Pulses)">
+                <option value="चना">चना (Chickpea)</option>
+                <option value="मसूर">मसूर (Lentil)</option>
+                <option value="मूंग">मूंग (Green Gram)</option>
+                <option value="उड़द">उड़द (Black Gram)</option>
+                <option value="अरहर">अरहर / तुअर (Pigeon Pea)</option>
+                <option value="मटर">मटर (Field Pea)</option>
+                <option value="राजमा">राजमा (Kidney Beans)</option>
+                <option value="लोबिया">लोबिया / चवला (Cowpea)</option>
+                <option value="मोठ">मोठ (Moth Bean)</option>
+                <option value="खेसारी">खेसारी (Khesari Dal)</option>
+                <option value="बाकला">बाकला (Broad Bean)</option>
+            </optgroup>
+
+            <optgroup label="🌻 तिलहन फसलें (Oilseeds)">
+                <option value="सरसों">सरसों / राया (Mustard)</option>
+                <option value="पीली सरसों">पीली सरसों (Yellow Mustard)</option>
+                <option value="तारामीरा">तारामीरा (Taramira)</option>
+                <option value="सोयाबीन">सोयाबीन (Soybean)</option>
+                <option value="मूंगफली">मूंगफली (Groundnut)</option>
+                <option value="सूरजमुखी">सूरजमुखी (Sunflower)</option>
+                <option value="तिल">तिल (Sesame)</option>
+                <option value="अलसी">अलसी (Linseed)</option>
+                <option value="अरंडी">अरंडी (Castor)</option>
+                <option value="कुसुम">कुसुम (Safflower)</option>
+                <option value="तोरिया">तोरिया (Toria)</option>
+            </optgroup>
+
+            <optgroup label="🥦 सब्जियां (Vegetables)">
+                <option value="आलू">आलू (Potato)</option>
+                <option value="प्याज">प्याज (Onion)</option>
+                <option value="लहसुन">लहसुन (Garlic)</option>
+                <option value="टमाटर">टमाटर (Tomato)</option>
+                <option value="मिर्च">मिर्च (Chilli)</option>
+                <option value="हरी मिर्च">हरी मिर्च (Green Chilli)</option>
+                <option value="शिमला मिर्च">शिमला मिर्च (Capsicum)</option>
+                <option value="बैंगन">बैंगन (Brinjal)</option>
+                <option value="भिंडी">भिंडी (Okra)</option>
+                <option value="फूलगोभी">फूलगोभी (Cauliflower)</option>
+                <option value="पत्तागोभी">पत्तागोभी (Cabbage)</option>
+                <option value="ब्रोकोली">ब्रोकोली (Broccoli)</option>
+                <option value="खीरा">खीरा (Cucumber)</option>
+                <option value="लौकी">लौकी (Bottle Gourd)</option>
+                <option value="करेला">करेला (Bitter Gourd)</option>
+                <option value="कद्दू">कद्दू (Pumpkin)</option>
+                <option value="तोरई">तोरई / नेनुआ (Ridge Gourd)</option>
+                <option value="गिलकी">गिलकी (Sponge Gourd)</option>
+                <option value="चिचिंडा">चिचिंडा (Snake Gourd)</option>
+                <option value="टिंडा">टिंडा (Apple Gourd)</option>
+                <option value="परवल">परवल (Pointed Gourd)</option>
+                <option value="कुंदरू">कुंदरू (Ivy Gourd)</option>
+                <option value="पेठा">पेठा (Ash Gourd)</option>
+                <option value="मूली">मूली (Radish)</option>
+                <option value="गाजर">गाजर (Carrot)</option>
+                <option value="चुकंदर">चुकंदर (Beetroot)</option>
+                <option value="शकरकंद">शकरकंद (Sweet Potato)</option>
+                <option value="अरबी">अरबी (Colocasia)</option>
+                <option value="सूरन">सूरन / जिमीकंद (Yam)</option>
+                <option value="पालक">पालक (Spinach)</option>
+                <option value="मेथी साग">मेथी साग (Fenugreek Leaves)</option>
+                <option value="बथुआ">बथुआ (Bathua)</option>
+                <option value="पुदीना">पुदीना (Mint)</option>
+                <option value="पत्ता प्याज">पत्ता प्याज (Spring Onion)</option>
+                <option value="सहजन">सहजन / मोरिंगा (Drumstick)</option>
+            </optgroup>
+
+            <optgroup label="🍎 फल व बागवानी (Fruits & Horticulture)">
+                <option value="तरबूज">तरबूज (Watermelon)</option>
+                <option value="खरबूजा">खरबूजा (Muskmelon)</option>
+                <option value="केला">केला (Banana)</option>
+                <option value="आम">आम (Mango)</option>
+                <option value="अमरूद">अमरूद (Guava)</option>
+                <option value="नींबू">नींबू (Lemon)</option>
+                <option value="पपीता">पपीता (Papaya)</option>
+                <option value="अनार">अनार (Pomegranate)</option>
+                <option value="अंगूर">अंगूर (Grapes)</option>
+                <option value="सेब">सेब (Apple)</option>
+                <option value="संतरा">संतरा (Orange)</option>
+                <option value="मौसंबी">मौसंबी (Sweet Lime)</option>
+                <option value="बेर">बेर (Jujube)</option>
+                <option value="आंवला">आंवला (Amla)</option>
+                <option value="लीची">लीची (Lychee)</option>
+                <option value="चीकू">चीकू (Sapodilla)</option>
+                <option value="कटहल">कटहल (Jackfruit)</option>
+                <option value="जामुन">जामुन (Black Plum)</option>
+                <option value="नाशपाती">नाशपाती (Pear)</option>
+                <option value="आड़ू">आड़ू (Peach)</option>
+                <option value="सीताफल">सीताफल / शरीफा (Custard Apple)</option>
+                <option value="अंजीर">अंजीर (Fig)</option>
+                <option value="अनानास">अनानास (Pineapple)</option>
+                <option value="नारियल">नारियल (Coconut)</option>
+                <option value="काजू">काजू (Cashew)</option>
+                <option value="बादाम">बादाम (Almond)</option>
+            </optgroup>
+
+            <optgroup label="🌶️ मसाले (Spices)">
+                <option value="जीरा">जीरा (Cumin)</option>
+                <option value="सौंफ">सौंफ (Fennel)</option>
+                <option value="कलौंजी">कलौंजी (Nigella)</option>
+                <option value="हल्दी">हल्दी (Turmeric)</option>
+                <option value="अदरक">अदरक (Ginger)</option>
+                <option value="धनिया">धनिया दाना (Coriander)</option>
+                <option value="अजवाइन">अजवाइन (Carom)</option>
+                <option value="मेथी दाना">मेथी दाना (Fenugreek)</option>
+                <option value="राई">राई (Black Mustard)</option>
+                <option value="इलायची">इलायची (Cardamom)</option>
+                <option value="काली मिर्च">काली मिर्च (Black Pepper)</option>
+            </optgroup>
+
+            <optgroup label="🌿 औषधीय एवं सगंधीय (Medicinal & Aromatic)">
+                <option value="ईसबगोल">ईसबगोल (Isabgol)</option>
+                <option value="अश्वगंधा">अश्वगंधा (Ashwagandha)</option>
+                <option value="मेन्था">मेन्था / पिपरमेंट (Mentha)</option>
+                <option value="अफीम">अफीम / पोस्ता (Opium Poppy)</option>
+                <option value="एलोवेरा">एलोवेरा (Aloe Vera)</option>
+                <option value="तुलसी">तुलसी (Tulsi)</option>
+                <option value="सफेद मूसली">सफेद मूसली (Safed Musli)</option>
+                <option value="शतावरी">शतावरी (Shatavari)</option>
+                <option value="कालमेघ">कालमेघ (Kalmegh)</option>
+                <option value="स्टीविया">स्टीविया (Stevia)</option>
+                <option value="गिलोय">गिलोय (Giloy)</option>
+            </optgroup>
+
+            <optgroup label="💸 नकदी, रेशेदार व चारा फसलें (Cash, Fiber & Fodder)">
+                <option value="कपास">कपास (Cotton)</option>
+                <option value="गन्ना">गन्ना (Sugarcane)</option>
+                <option value="ग्वार">ग्वार (Guar)</option>
+                <option value="जूट">जूट (Jute)</option>
+                <option value="सनई">सनई / सन (Sunn Hemp)</option>
+                <option value="बरसीम">बरसीम (Berseem)</option>
+                <option value="जई चारा">जई चारा (Fodder Oats)</option>
+                <option value="नेपियर घास">नेपियर घास (Napier Grass)</option>
+                <option value="रिजका">रिजका / ल्यूसर्न (Lucerne)</option>
+                <option value="चाय">चाय (Tea)</option>
+                <option value="कॉफी">कॉफी (Coffee)</option>
+                <option value="तंबाकू">तंबाकू (Tobacco)</option>
+            </optgroup>
+
+            <option value="other">✏️ अन्य फसल (सूची में नहीं है, तो नाम लिखें)</option>
+        </select>
+
+        <!-- Custom Crop Input -->
+        <input type="text" id="customCropName" class="crop-select custom-crop" placeholder="फसल का नाम यहाँ लिखें (जैसे: हल्दी, मेथी...)">
+
+        <!-- 2. Crop Age -->
+        <label for="cropAge" class="label">📅 फसल कितने दिन पुरानी है? <span>*</span></label>
+        <div class="age-row">
+            <input type="number" id="cropAge" class="age-input" placeholder="जैसे: 30, 90, 365, 1200" min="1" max="3650">
+            <span class="age-unit">दिन</span>
+        </div>
+        <small class="age-hint">💡 नोट: बागवानी और फलदार पेड़ों के लिए उम्र दिनों में लिखें (उदा. 3 साल = 1095 दिन, अधिकतम 10 साल)।</small>
+
+        <!-- 3. Photo Upload -->
+        <label class="label">📸 रोग / कीट की फोटो <span>*</span></label>
+        <div class="upload-box" onclick="document.getElementById('imageInput').click()">
+            <div class="icon">📷</div>
+            <div class="text">यहाँ क्लिक करें — कैमरा खोलें या गैलरी से चुनें</div>
+            <div class="hint">(पत्ती, तना, फल, कीट — किसी भी रोगग्रस्त भाग की फोटो लें)</div>
+        </div>
+        <input type="file" id="imageInput" class="hidden-file-input" accept="image/*" multiple>
+        <div id="previewGrid" class="preview-grid" aria-live="polite"></div>
+        <small class="age-hint">💡 अधिकतम 5 फोटो: पूरा पौधा, प्रभावित भाग, पत्ती की ऊपरी/निचली सतह, तना/फल/फली/जड़/कीट — आवश्यकता के अनुसार।</small>
+
+        <!-- 4. Submit Button -->
+        <button id="submitBtn" class="btn-diagnose" onclick="runDiagnosis()">
+            🔍 Satguru AI से रोग जाँचें और ICAR इलाज पाएं
+        </button>
+
+        <!-- Loading Indicator -->
+        <div id="loading">⏳ Satguru AI आपकी फसल और फोटो की जाँच कर रहा है...<br>कृपया 3-5 सेकंड प्रतीक्षा करें।</div>
+
+        <!-- Audio Button -->
+        <button id="speakBtn" class="btn-speak" onclick="speakResult()">
+            🔊 बोल कर सुनें (शुद्ध Hindi में)
+        </button>
+
+        <!-- Result Area -->
+        <div id="result"></div>
+
+        <!-- Back to Home -->
+        <a href="index.html" class="back-link">⬅️ सतगुरु बीज भंडार होम पेज पर वापस जाएं</a>
+
+    </div>
+</div>
+
+<script>
+(() => {
+    'use strict';
+
+    // =====================================================================
+    // SATGURU AI CROP DOCTOR — SECURE FRONTEND
+    // IMPORTANT: No Groq/Gemini/provider secret is stored in this browser.
+    // The browser talks only to the Satguru backend endpoint below.
+    // =====================================================================
+
+    const API_ENDPOINT = '/api/satguru-crop-doctor/diagnose';
+    const MAX_IMAGES = 5;
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per image
+    const MAX_TOTAL_SIZE = 35 * 1024 * 1024; // 35 MB total
+    const REQUEST_TIMEOUT_MS = 90_000;
+
+    const SUCCESS_WARNING = '⚠️ चेतावनी:\nयह सारी जानकारी Satguru AI द्वारा उत्पन्न की गई है, इसलिए इसे उपयोग करने से पहले किसी कृषि दुकान या फील्ड ऑफिसर की सलाह जरूर लें।';
+    const WELCOME_TEXT = 'सतगुरु बीज भंडार में आपका स्वागत है। मैं Satguru AI हूँ।';
+
+    const state = {
+        files: [],
+        lastSpokenText: '',
+        busy: false
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function escapeText(value) {
+        return value == null ? '' : String(value);
+    }
+
+    function cleanCropName(name) {
+        return String(name || '')
+            .replace(/\([^)]*\)/g, '')
+            .replace(/[a-zA-Z]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function selectedCrop() {
+        const select = $('cropName');
+        if (select.value === 'other') return $('customCropName').value.trim();
+        return select.value.trim();
+    }
+
+    function checkCustomCrop() {
+        const custom = $('customCropName');
+        const isOther = $('cropName').value === 'other';
+        custom.style.display = isOther ? 'block' : 'none';
+        custom.required = isOther;
+        if (isOther) custom.focus();
+    }
+
+    function setResultMessage(message, type = 'error') {
+        const result = $('result');
+        result.textContent = '';
+        const box = document.createElement('div');
+        box.className = type === 'warning' ? 'warning-box' : 'error-text';
+        box.style.whiteSpace = 'pre-line';
+        box.textContent = message;
+        result.appendChild(box);
+        result.style.display = 'block';
+    }
+
+    function setLoading(isLoading) {
+        state.busy = isLoading;
+        $('submitBtn').disabled = isLoading;
+        $('loading').style.display = isLoading ? 'block' : 'none';
+        if (isLoading) $('speakBtn').style.display = 'none';
+    }
+
+    function revokePreviewUrls() {
+        state.files.forEach(item => {
+            if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        });
+    }
+
+    function resetFiles() {
+        revokePreviewUrls();
+        state.files = [];
+        $('imageInput').value = '';
+        renderPreviews();
+    }
+
+    function renderPreviews() {
+        const wrap = $('previewGrid');
+        wrap.textContent = '';
+
+        state.files.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'preview-card';
+
+            const img = document.createElement('img');
+            img.src = item.previewUrl;
+            img.alt = `अपलोड की गई फोटो ${index + 1}`;
+
+            const meta = document.createElement('div');
+            meta.className = 'preview-meta';
+            meta.textContent = `${index + 1}. ${item.file.name}`;
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'remove-image';
+            remove.textContent = 'हटाएँ';
+            remove.addEventListener('click', () => {
+                URL.revokeObjectURL(item.previewUrl);
+                state.files.splice(index, 1);
+                renderPreviews();
+            });
+
+            card.append(img, meta, remove);
+            wrap.appendChild(card);
+        });
+    }
+
+    function validateImageFile(file) {
+        if (!(file instanceof File)) return 'अमान्य फाइल।';
+        if (!file.type.startsWith('image/')) return 'केवल image फाइल स्वीकार की जाती है।';
+        if (file.size <= 0) return 'फोटो खाली है।';
+        if (file.size > MAX_FILE_SIZE) return 'एक फोटो का आकार 10 MB से अधिक नहीं होना चाहिए।';
+        return '';
+    }
+
+    async function validateBasicImageDimensions(file) {
+        try {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            const result = await new Promise(resolve => {
+                img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+                img.onerror = () => resolve(null);
+                img.src = url;
+            });
+            URL.revokeObjectURL(url);
+            if (!result) return 'फोटो पढ़ी नहीं जा सकी। कृपया दूसरी फोटो लें।';
+            if (result.width < 320 || result.height < 240) {
+                return 'फोटो का resolution बहुत कम है। कृपया पौधे/लक्षण की नजदीक से साफ फोटो लें।';
+            }
+            return '';
+        } catch (_) {
+            return 'फोटो की जाँच नहीं हो सकी। कृपया दूसरी फोटो लें।';
+        }
+    }
+
+    async function handleFiles(fileList) {
+        if (state.busy) return;
+
+        const incoming = Array.from(fileList || []);
+        if (!incoming.length) return;
+
+        const remaining = MAX_IMAGES - state.files.length;
+        if (remaining <= 0) {
+            alert(`अधिकतम ${MAX_IMAGES} फोटो अपलोड की जा सकती हैं।`);
+            return;
+        }
+
+        const accepted = incoming.slice(0, remaining);
+        const errors = [];
+
+        for (const file of accepted) {
+            const basicError = validateImageFile(file);
+            if (basicError) {
+                errors.push(`${file.name}: ${basicError}`);
+                continue;
+            }
+
+            const dimensionError = await validateBasicImageDimensions(file);
+            if (dimensionError) {
+                errors.push(`${file.name}: ${dimensionError}`);
+                continue;
+            }
+
+            const duplicate = state.files.some(item =>
+                item.file.name === file.name &&
+                item.file.size === file.size &&
+                item.file.lastModified === file.lastModified
+            );
+            if (duplicate) continue;
+
+            state.files.push({
+                file,
+                previewUrl: URL.createObjectURL(file)
+            });
+        }
+
+        renderPreviews();
+        $('imageInput').value = '';
+
+        if (errors.length) {
+            alert(errors.join('\n'));
+        }
+
+        const total = state.files.reduce((sum, item) => sum + item.file.size, 0);
+        if (total > MAX_TOTAL_SIZE) {
+            alert('कुल फोटो आकार 35 MB से अधिक है। कुछ फोटो हटाकर फिर प्रयास करें।');
+        }
+    }
+
+    function normalizeStringArray(value) {
+        if (!Array.isArray(value)) return [];
+        return value.map(v => String(v ?? '').trim()).filter(Boolean);
+    }
+
+    function addText(parent, text, className = '') {
+        const el = document.createElement('div');
+        if (className) el.className = className;
+        el.textContent = escapeText(text);
+        parent.appendChild(el);
+        return el;
+    }
+
+    function addHeading(parent, title) {
+        const h = document.createElement('h3');
+        h.textContent = title;
+        parent.appendChild(h);
+    }
+
+    function addList(parent, items) {
+        const list = document.createElement('ul');
+        normalizeStringArray(items).forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            list.appendChild(li);
+        });
+        if (list.children.length) parent.appendChild(list);
+    }
+
+    function renderSources(parent, sources) {
+        if (!Array.isArray(sources) || !sources.length) return;
+        addHeading(parent, '📚 सत्यापित संदर्भ');
+        sources.forEach(source => {
+            const box = document.createElement('div');
+            box.className = 'ref-box';
+            const title = source && source.title ? source.title : 'स्रोत';
+            const publisher = source && source.publisher ? ` — ${source.publisher}` : '';
+            const year = source && source.year ? ` (${source.year})` : '';
+            const verified = source && source.verified === true ? ' ✓ सत्यापित' : ' — सत्यापन उपलब्ध नहीं';
+            box.textContent = `${title}${publisher}${year}${verified}`;
+            if (source && source.url && typeof source.url === 'string' && /^https?:\/\//i.test(source.url)) {
+                const link = document.createElement('a');
+                link.href = source.url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = ' स्रोत खोलें';
+                box.appendChild(link);
+            }
+            parent.appendChild(box);
+        });
+    }
+
+    function renderDiagnosis(data) {
+        const result = $('result');
+        result.textContent = '';
+
+        // Mandatory warning must ALWAYS be the first successful-result content.
+        const disclaimer = document.createElement('div');
+        disclaimer.className = 'ai-disclaimer';
+        disclaimer.style.whiteSpace = 'pre-line';
+        disclaimer.textContent = SUCCESS_WARNING;
+        result.appendChild(disclaimer);
+
+        addText(result, WELCOME_TEXT, 'welcome-line');
+
+        const tags = document.createElement('div');
+        tags.className = 'tag-wrapper';
+        const tagValues = [
+            `🌾 चुनी गई फसल: ${cleanCropName(selectedCrop()) || selectedCrop()}`,
+            `🔎 पहचानी गई फसल: ${data.detected_crop || 'निर्धारित नहीं'}`,
+            `🖼️ फोटो स्थिति: ${data.image_quality || 'निर्धारित नहीं'}`,
+            `🌿 पौधे का भाग: ${data.plant_part || 'निर्धारित नहीं'}`,
+            `📅 अवस्था: ${data.growth_stage || 'निर्धारित नहीं'}`
+        ];
+        tagValues.forEach(value => {
+            const tag = document.createElement('span');
+            tag.className = 'info-tag';
+            tag.textContent = value;
+            tags.appendChild(tag);
+        });
+        result.appendChild(tags);
+
+        if (data.status === 'STOP' || data.crop_match === false) {
+            const stop = document.createElement('div');
+            stop.className = 'warning-box';
+            stop.style.whiteSpace = 'pre-line';
+            stop.textContent = data.message || data.warning || 'फोटो और चुनी गई फसल में पर्याप्त मेल नहीं मिला। निदान रोक दिया गया है।';
+            result.appendChild(stop);
+            addList(result, data.follow_up_questions);
+            result.style.display = 'block';
+            state.lastSpokenText = `${SUCCESS_WARNING} ${WELCOME_TEXT} ${stop.textContent}`;
+            $('speakBtn').style.display = 'block';
+            return;
+        }
+
+        if (data.diagnosis_status) {
+            addHeading(result, 'स्थिति');
+            addText(result, data.diagnosis_status);
+        }
+
+        if (data.primary_diagnosis) {
+            addHeading(result, '🔬 मुख्य संभावित निदान');
+            addText(result, data.primary_diagnosis);
+        }
+
+        if (data.symptoms) {
+            addHeading(result, '🩺 दिखाई देने वाले लक्षण');
+            if (Array.isArray(data.symptoms)) addList(result, data.symptoms);
+            else addText(result, data.symptoms);
+        }
+
+        if (data.differential_diagnosis) {
+            addHeading(result, '🔍 वैकल्पिक संभावनाएँ');
+            if (Array.isArray(data.differential_diagnosis)) addList(result, data.differential_diagnosis);
+            else addText(result, data.differential_diagnosis);
+        }
+
+        if (data.severity) {
+            addHeading(result, '📊 गंभीरता / जोखिम');
+            addText(result, data.severity);
+        }
+
+        if (data.recommendations) {
+            addHeading(result, '🌱 प्रबंधन / सलाह');
+            if (Array.isArray(data.recommendations)) addList(result, data.recommendations);
+            else addText(result, data.recommendations);
+        }
+
+        // Chemical recommendations are shown only when backend says they are verified.
+        if (data.chemical_status === 'verified' && data.chemical_recommendations) {
+            addHeading(result, '🧪 सत्यापित रासायनिक सलाह');
+            if (Array.isArray(data.chemical_recommendations)) addList(result, data.chemical_recommendations);
+            else addText(result, data.chemical_recommendations);
+        } else if (data.chemical_recommendations || data.chemical_status) {
+            const safe = document.createElement('div');
+            safe.className = 'warning-box';
+            safe.textContent = 'रासायनिक दवा/मात्रा के लिए सत्यापित आधिकारिक स्रोत उपलब्ध न होने के कारण इस उत्तर में अनुमानित डोज नहीं दी गई है।';
+            result.appendChild(safe);
+        }
+
+        if (data.follow_up_questions) {
+            addHeading(result, '📷 आगे कौन-सी फोटो/जानकारी चाहिए');
+            addList(result, data.follow_up_questions);
+        }
+
+        renderSources(result, data.sources);
+
+        const safety = document.createElement('div');
+        safety.className = 'warning-box';
+        safety.textContent = data.warning || 'किसी भी कृषि उपचार को अपनाने से पहले स्थानीय कृषि विशेषज्ञ/फील्ड ऑफिसर से सलाह लें और उत्पाद लेबल तथा स्थानीय सरकारी अनुशंसा का पालन करें।';
+        result.appendChild(safety);
+
+        result.style.display = 'block';
+
+        // Build speech text from plain fields only; never speak raw HTML.
+        state.lastSpokenText = [
+            SUCCESS_WARNING,
+            WELCOME_TEXT,
+            data.primary_diagnosis,
+            Array.isArray(data.symptoms) ? data.symptoms.join('. ') : data.symptoms,
+            Array.isArray(data.recommendations) ? data.recommendations.join('. ') : data.recommendations,
+            data.warning
+        ].filter(Boolean).join('. ');
+        $('speakBtn').style.display = 'block';
+    }
+
+    async function readJsonResponse(response) {
+        const text = await response.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (_) {}
+
+        if (!response.ok) {
+            const message = data?.message || data?.error || `सर्वर अनुरोध असफल हुआ (HTTP ${response.status})।`;
+            const error = new Error(message);
+            error.code = data?.error_code || `HTTP_${response.status}`;
+            throw error;
+        }
+
+        if (!data || typeof data !== 'object') {
+            throw new Error('सर्वर ने मान्य structured response नहीं दिया।');
+        }
+        return data;
+    }
+
+    async function runDiagnosis() {
+        if (state.busy) return;
+
+        const crop = selectedCrop();
+        const ageRaw = $('cropAge').value.trim();
+        const age = Number(ageRaw);
+        const totalSize = state.files.reduce((sum, item) => sum + item.file.size, 0);
+
+        if (!crop) {
+            alert('कृपया फसल का नाम चुनें या दर्ज करें।');
+            return;
+        }
+        if (!Number.isInteger(age) || age < 1 || age > 3650) {
+            alert('कृपया फसल की उम्र 1 से 3650 दिन के बीच दर्ज करें।');
+            return;
+        }
+        if (!state.files.length) {
+            alert('कृपया कम से कम एक साफ कृषि फोटो अपलोड करें।');
+            return;
+        }
+        if (state.files.length > MAX_IMAGES) {
+            alert(`अधिकतम ${MAX_IMAGES} फोटो स्वीकार की जाती हैं।`);
+            return;
+        }
+        if (totalSize > MAX_TOTAL_SIZE) {
+            alert('कुल फोटो आकार 35 MB से अधिक है। कुछ फोटो हटाकर फिर प्रयास करें।');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('selected_crop', crop);
+        formData.append('crop_age_days', String(age));
+        formData.append('language', 'hi');
+        formData.append('client_version', 'satguru-crop-doctor-2.0');
+        state.files.forEach((item, index) => {
+            formData.append('images', item.file, `crop-photo-${index + 1}-${item.file.name}`);
+        });
+
+        setLoading(true);
+        $('result').style.display = 'none';
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+        try {
+            const response = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                signal: controller.signal
+            });
+
+            const data = await readJsonResponse(response);
+            renderDiagnosis(data);
+        } catch (error) {
+            console.error('Satguru AI diagnosis error:', error);
+            let message = 'Satguru AI से कृषि विश्लेषण प्राप्त नहीं हो सका।';
+
+            if (error?.name === 'AbortError') {
+                message = 'अनुरोध का समय समाप्त हो गया। कृपया साफ फोटो के साथ दोबारा प्रयास करें।';
+            } else if (error?.code === 'CROP_MISMATCH') {
+                message = error.message;
+            } else if (error?.code === 'IMAGE_QUALITY_FAILED') {
+                message = error.message;
+            } else if (error?.code === 'MODEL_UNAVAILABLE') {
+                message = 'AI vision model अभी उपलब्ध नहीं है। थोड़ी देर बाद फिर प्रयास करें।';
+            } else if (error?.code === 'RATE_LIMITED') {
+                message = 'अभी बहुत अधिक अनुरोध हैं। थोड़ी देर बाद फिर प्रयास करें।';
+            } else if (error?.code === 'SOURCE_UNAVAILABLE') {
+                message = 'आधिकारिक कृषि स्रोत का सत्यापन उपलब्ध नहीं हो सका, इसलिए सुरक्षित रूप से निदान/दवा सलाह रोक दी गई है।';
+            } else if (error?.message) {
+                message = error.message;
+            }
+
+            setResultMessage(`❌ ${message}`, 'error');
+        } finally {
+            clearTimeout(timeoutId);
+            setLoading(false);
+        }
+    }
+
+    function speakResult() {
+        if (!('speechSynthesis' in window)) {
+            alert('आपके ब्राउज़र में आवाज़ सुविधा उपलब्ध नहीं है।');
+            return;
+        }
+        const text = String(state.lastSpokenText || '').trim();
+        if (!text) {
+            alert('बोलने के लिए परिणाम उपलब्ध नहीं है।');
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'hi-IN';
+        utterance.rate = 0.92;
+        utterance.pitch = 1;
+
+        const voices = window.speechSynthesis.getVoices();
+        const hindiVoice = voices.find(v =>
+            v.lang === 'hi-IN' || v.lang.toLowerCase().startsWith('hi-') ||
+            v.name.toLowerCase().includes('hindi')
+        );
+        if (hindiVoice) utterance.voice = hindiVoice;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // Public handlers retained for compatibility with the existing HTML.
+    window.checkCustomCrop = checkCustomCrop;
+    window.runDiagnosis = runDiagnosis;
+    window.speakResult = speakResult;
+
+    $('imageInput').addEventListener('change', event => handleFiles(event.target.files));
+
+    const uploadBox = document.querySelector('.upload-box');
+    if (uploadBox) {
+        uploadBox.addEventListener('dragover', event => {
+            event.preventDefault();
+            uploadBox.style.background = '#dcedc8';
+        });
+        uploadBox.addEventListener('dragleave', () => {
+            uploadBox.style.background = '';
+        });
+        uploadBox.addEventListener('drop', event => {
+            event.preventDefault();
+            uploadBox.style.background = '';
+            handleFiles(event.dataTransfer.files);
+        });
+    }
+
+    window.addEventListener('beforeunload', revokePreviewUrls);
+    checkCustomCrop();
+})();
+</script>
+</body>
+</html>

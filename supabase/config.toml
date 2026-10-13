@@ -1,0 +1,17 @@
+[functions.send-bill-whatsapp]
+enabled = true
+verify_jwt = true
+import_map = "./functions/send-bill-whatsapp/deno.json"
+entrypoint = "./functions/send-bill-whatsapp/index.ts"
+
+[functions.fetch-mandi-rates]
+enabled = true
+verify_jwt = false
+import_map = "./functions/fetch-mandi-rates/deno.json"
+entrypoint = "./functions/fetch-mandi-rates/index.ts"
+
+[functions.analyze-crop]
+enabled = true
+verify_jwt = true
+import_map = "./functions/analyze-crop/deno.json"
+entrypoint = "./functions/analyze-crop/index.ts"

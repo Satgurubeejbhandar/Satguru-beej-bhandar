@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="hi">
+  <head>
+    <meta charset="UTF-8" />
+    
+    <!-- FIX: Clean Single-Line CSP (Supports Workers, WebSockets, Firebase, Supabase, Google & Weather API) -->
+    <meta 
+      http-equiv="Content-Security-Policy" 
+      content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https:; font-src 'self' https: data:; frame-src 'self' https:; connect-src 'self' https: wss: ws: data: blob:; img-src 'self' data: https: blob:;"
+    />
+
+    <!-- CUSTOM SVG FAVICON -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%231e5631'/%3E%3Cpath d='M50 78 V40 M50 40 C50 30 44 24 36 22 C44 30 46 36 50 40 C54 36 56 30 64 22 C56 24 50 30 50 40 M50 54 C50 46 45 41 38 39 C45 46 47 51 50 54 C53 51 55 46 62 39 C55 41 50 46 50 54 M50 68 C50 60 45 55 38 53 C45 60 47 65 50 68 C53 65 55 60 62 53 C55 55 50 60 50 68' stroke='%23e9b94c' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" />
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="सतगुरु बीज भंडार, दल्लुसर (सरदारशहर, चूरू) — प्रमाणित बीज, खाद, कीटनाशक, फसल सलाह, मंडी भाव, MSP एवं सरकारी योजनाओं की जानकारी।" />
+    <title>सतगुरु बीज भंडार | Satguru Beej Bhandar — दल्लुसर</title>
+    
+    <!-- GOOGLE FONTS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Mukta:wght@300;400;500;600;700;800&family=Baloo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- SATGURU AI FLOATING ROUND BUTTON STYLES -->
+    <style>
+      .satguru-ai-float-btn {
+        position: fixed;
+        bottom: 22px;
+        right: 20px;
+        width: 58px;
+        height: 58px;
+        background: linear-gradient(135deg, #1b5e20, #2e7d32);
+        color: #ffffff !important;
+        border-radius: 50% !important; /* बिल्कुल गोल बटन */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none !important;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+        z-index: 99999;
+        border: 2px solid #a5d6a7;
+        animation: satguruPulse 2s infinite;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .satguru-ai-float-btn:hover {
+        transform: scale(1.12);
+        box-shadow: 0 6px 22px rgba(0,0,0,0.45);
+      }
+
+      .satguru-ai-float-btn .ai-icon {
+        font-size: 26px;
+        line-height: 1;
+      }
+
+      @keyframes satguruPulse {
+        0%   { box-shadow: 0 0 0 0 rgba(46,125,50,0.7); }
+        70%  { box-shadow: 0 0 0 12px rgba(46,125,50,0); }
+        100% { box-shadow: 0 0 0 0 rgba(46,125,50,0); }
+      }
+
+      @media (max-width: 600px) {
+        .satguru-ai-float-btn {
+          bottom: 16px;
+          right: 14px;
+          width: 50px;
+          height: 50px;
+        }
+        .satguru-ai-float-btn .ai-icon {
+          font-size: 22px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    
+    <!-- FIREBASE RECAPTCHA CONTAINER -->
+    <div id="recaptcha-container"></div>
+    
+    <script type="module" src="/src/main.tsx"></script>
+
+    <!-- SATGURU AI FLOATING ROUND BUTTON -->
+<a href="/satguru-ai.html" class="satguru-ai-float-btn" title="Satguru AI — फसल डॉक्टर" aria-label="Satguru AI">
+  <span class="ai-icon">🌿</span>
+</a>
+  </body>
+</html>
