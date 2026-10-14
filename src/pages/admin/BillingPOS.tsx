@@ -236,7 +236,7 @@ const EMPTY_ROW = (): BillItem => ({
   batch_id: '',
   available_qty: 0,
   original_qty: 0,
-  quantity: 1,
+  quantity: 0,
   rate: 0,
   taxable_amount: 0,
   cgst_amount: 0,
@@ -515,29 +515,53 @@ export default function BillingPOS() {
 
   // ⭐ FIX #1 + #6: Edit mode effective available + toast outside updater
   const handleQtyChange = (index: number, qtyVal: number | string) => {
-    const qty = Number(qtyVal)
-    if (isNaN(qty) || qty <= 0) return
+  const qtyText = String(qtyVal).trim()
 
-    const safeQty = Math.round((qty + Number.EPSILON) * 1000) / 1000
-    const row = billItems[index]
-    if (!row) return
-
-    const effectiveAvailable = isEditMode
-      ? row.available_qty + row.original_qty
-      : row.available_qty
-
-    if (safeQty > effectiveAvailable) {
-      toast.error(`केवल उपलब्ध मात्रा (${effectiveAvailable}) दर्ज करें!`)
-      return
-    }
-
-    setBillItems((prev) => {
-      const updated = [...prev]
-      const newRow = { ...updated[index], quantity: safeQty }
-      updated[index] = calculateRowTotals(newRow, docType === 'gst')
-      return updated
-    })
+  // Empty input allow karein, taaki existing 1 ko delete kar sakein.
+  if (qtyText === '') {
+    setBillItems((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? calculateRowTotals(
+              { ...item, quantity: 0 },
+              docType === 'gst'
+            )
+          : item
+      )
+    )
+    return
   }
+
+  // Sirf positive whole numbers allow karein.
+  if (!/^\d+$/.test(qtyText)) return
+
+  const qty = Number(qtyText)
+
+  if (!Number.isSafeInteger(qty) || qty <= 0) return
+
+  const row = billItems[index]
+  if (!row) return
+
+  const effectiveAvailable = isEditMode
+    ? row.available_qty + row.original_qty
+    : row.available_qty
+
+  if (qty > effectiveAvailable) {
+    toast.error(`केवल उपलब्ध मात्रा (${effectiveAvailable}) दर्ज करें!`)
+    return
+  }
+
+  setBillItems((prev) =>
+    prev.map((item, i) =>
+      i === index
+        ? calculateRowTotals(
+            { ...item, quantity: qty },
+            docType === 'gst'
+          )
+        : item
+    )
+  )
+}
 
   const addBillRow = () => setBillItems((prev) => [...prev, EMPTY_ROW()])
   const removeBillRow = (uid: string) => {
@@ -2017,8 +2041,8 @@ export default function BillingPOS() {
                         <div className="w-full sm:w-20">
                           <input
                             type="number"
-                            step="0.001"
-                            min="0.001"
+                            step="1"
+                            min="1"
                             max={effectiveMax || undefined}
                             required
                             value={item.quantity}

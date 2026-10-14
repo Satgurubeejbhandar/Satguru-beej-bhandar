@@ -15,7 +15,8 @@ import {
   Construction, Table2, LayoutGrid, Trash2, Handshake, BadgeCheck,
   PartyPopper, Calculator, Home, HelpCircle, ChevronDown, Landmark,
   Activity, MessageCircle, GitBranch, ClipboardCheck, BookMarked, Ruler, Award, FileWarning, CalendarClock, RefreshCw,
-  TrendingUp, FileSignature
+  TrendingUp, FileSignature,
+  CreditCard
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -61,12 +62,11 @@ const NAV_CATEGORIES: readonly NavCategory[] = [
       { name: 'Group Udhaar', path: '/admin/groups', icon: Users },
       { name: 'Farmer Ledger', path: '/admin/ledger', icon: FileText },
       { name: 'Farmer Status', path: '/admin/farmer-status', icon: UserX },
+      { name: 'Farmer Card', path: '/admin/farmer-cards', icon: CreditCard },
       { name: 'Credit Limit', path: '/admin/credit-limit', icon: Gauge },
       { name: 'Outstanding Report', path: '/admin/outstanding', icon: IndianRupee },
       { name: 'Farmer Search', path: '/admin/farmer-search', icon: Search },
-      { name: 'Interest', path: '/admin/interest', icon: Percent },
       { name: 'Interest Report', path: '/admin/interest-report', icon: Percent },
-      { name: 'Cashback', path: '/admin/cashback', icon: Sparkles },
       { name: 'Cashback Report', path: '/admin/cashback-report', icon: Sparkles },
       { name: 'Group Usage', path: '/admin/group-usage', icon: Users },
       { name: 'Group Balance Sync', path: '/admin/group-sync', icon: RefreshCw },
@@ -124,6 +124,7 @@ const NAV_CATEGORIES: readonly NavCategory[] = [
     items: [
       { name: 'Billing POS', path: '/admin/bills', icon: Receipt },
       { name: 'Payments', path: '/admin/payments', icon: IndianRupee },
+      { name: 'Payment History', path: '/admin/payment-history', icon: ScrollText },
       { name: 'Payment Register', path: '/admin/payment-register', icon: Wallet },
       { name: 'Bill Void', path: '/admin/bill-void', icon: Ban },
       { name: 'Bill Series', path: '/admin/bill-series', icon: Hash },

@@ -127,6 +127,7 @@ const MonthlySalesReport = lazyPage(() => import('./pages/admin/MonthlySalesRepo
 const ProductWiseSales = lazyPage(() => import('./pages/admin/ProductWiseSales'), 'Product Sales')
 const OutstandingReport = lazyPage(() => import('./pages/admin/OutstandingReport'), 'Outstanding Report')
 const PaymentRegister = lazyPage(() => import('./pages/admin/PaymentRegister'), 'Payment Register')
+const PaymentHistory = lazyPage(() => import('./pages/admin/PaymentHistory'), 'Payment History')
 const ExpiryReport = lazyPage(() => import('./pages/admin/ExpiryReport'), 'Expiry Report')
 const ExpiredStockWriteoff = lazyPage(() => import('./pages/admin/ExpiredStockWriteoff'), 'Expired Write-off')
 const ReorderList = lazyPage(() => import('./pages/admin/ReorderList'), 'Reorder List')
@@ -171,7 +172,7 @@ const CompanyLedger = lazyPage(() => import('./pages/admin/CompanyLedger'), 'Com
 const CompanyPayment = lazyPage(() => import('./pages/admin/CompanyPayment'), 'Company Payment')
 const DamageProduct = lazyPage(() => import('./pages/admin/DamageProduct'), 'Damage Product')
 const GSTCalculation = lazyPage(() => import('./pages/admin/GSTCalculation'), 'GST Calculation')
-
+const FarmerCardGenerator = lazyPage(() => import('./pages/admin/FarmerCardGenerator'), 'Card Generator')
 /* Additional Modules */
 const SchemeSlabsEditor = lazyPage(() => import('./pages/admin/SchemeSlabsEditor'), 'Scheme Slabs')
 const CategoryManager = lazyPage(() => import('./pages/admin/CategoryManager'), 'Categories')
@@ -330,6 +331,7 @@ export default function App() {
           >
             <Route index element={<AdminOverview />} />
             <Route path="farmers/*" element={<FarmersMaster />} />
+            <Route path="farmer-cards/*" element={<FarmerCardGenerator />} />
             <Route path="groups/*" element={<GroupUdhaarMaster />} />
             <Route path="companies/*" element={<CompanyMaster />} />
             <Route path="products/*" element={<ProductMaster />} />
@@ -338,6 +340,7 @@ export default function App() {
             <Route path="batches/*" element={<BatchLotManager />} />
             <Route path="bills/*" element={<BillingPOS />} />
             <Route path="payments/*" element={<PaymentEntry />} />
+            <Route path="payment-history/*" element={<PaymentHistory />} />
             <Route path="ledger/*" element={<FarmerLedgerView />} />
             <Route path="data-reset" element={<DataResetTool />} />
             <Route path="bank-accounts/*" element={<BankAccountsMaster />} />

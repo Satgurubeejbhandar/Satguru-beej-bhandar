@@ -400,11 +400,21 @@ export default function ProductReturns() {
       return
     }
 
-    const returnQty = safeQty(qty)
-    if (!Number.isFinite(returnQty) || returnQty <= 0) {
-      toast.error('Valid return quantity दर्ज करें.')
-      return
-    }
+const returnQty = safeQty(qty)
+const isPhysicalReturn = selectedBill?.is_physical === true
+
+if (
+  !Number.isFinite(returnQty) ||
+  returnQty <= 0 ||
+  (!isPhysicalReturn && !Number.isSafeInteger(returnQty))
+) {
+  toast.error(
+    isPhysicalReturn
+      ? 'Valid return amount दर्ज करें.'
+      : 'Return quantity केवल पूर्ण संख्या में दर्ज करें (1, 2, 3...).'
+  )
+  return
+}
     if (!selectedItem) {
       toast.error('Selected bill item नहीं मिला.')
       return
@@ -659,17 +669,25 @@ export default function ProductReturns() {
               <label htmlFor="return-qty" className="block font-bold text-gray-700 mb-1">
                 {selectedBill?.is_physical ? 'Return Amount (₹ रुपये) *' : 'Return Quantity *'}
               </label>
-              <input
-                id="return-qty"
-                type="number"
-                step="0.01"
-                min="0.01"
-                required
-                value={qty}
-                disabled={saving}
-                onChange={(e) => setQty(e.target.value)}
-                className="w-full p-2.5 border border-gray-200 rounded-xl font-black disabled:opacity-50 text-xs sm:text-sm"
-              />
+             <input
+  id="return-qty"
+  type="number"
+  step={selectedBill?.is_physical ? '0.01' : '1'}
+  min={selectedBill?.is_physical ? '0.01' : '1'}
+  required
+  value={qty}
+  disabled={saving}
+  onChange={(e) => setQty(e.target.value)}
+  onKeyDown={(e) => {
+    if (
+      !selectedBill?.is_physical &&
+      ['.', ',', 'e', 'E', '+', '-'].includes(e.key)
+    ) {
+      e.preventDefault()
+    }
+  }}
+  className="w-full p-2.5 border border-gray-200 rounded-xl font-black disabled:opacity-50 text-xs sm:text-sm"
+/>
               {selectedItem && (
                 <div className="text-[11px] text-gray-500 mt-1 space-y-0.5 font-semibold">
                   {selectedBill?.is_physical ? (

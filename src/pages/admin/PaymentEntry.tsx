@@ -22,9 +22,26 @@ import {
   FileText,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
 
+// ✅ Shared slip components (नई file से)
+import {
+  PaymentSlipTemplate,
+  buildPdfBlob,
+  formatINR,
+  formatDateDMY,
+  formatTime12,
+  referenceDisplay,
+  sanitizeFilename,
+  normalisePhone,
+  PAYMENT_MODE_LABEL,
+  SHOP_INFO,
+  type PaymentReceipt,
+} from '../../components/PaymentSlip'
+
+// Re-export for other files that may import PaymentReceipt from here
+export type { PaymentReceipt }
+
+/* ─────────── Types ─────────── */
 export interface CreditAccountInfo {
   id?: string
   current_outstanding: number
@@ -43,21 +60,7 @@ export interface FarmerOption {
   credit_accounts?: CreditAccountInfo[] | CreditAccountInfo | null
 }
 
-export interface PaymentReceipt {
-  payment_id: string
-  payment_number: string
-  payment_amount: number
-  payment_mode: string
-  previous_outstanding: number
-  new_outstanding: number
-  farmer_name: string
-  farmer_id_code: string
-  farmer_mobile: string | null
-  payment_date: string
-  reference_number: string
-  notes: string
-}
-
+/* ─────────── Constants ─────────── */
 const PAYMENT_MODES = [
   { value: 'cash', label: 'Cash (नकद)' },
   { value: 'upi', label: 'UPI / PhonePe / GPay' },
@@ -65,28 +68,9 @@ const PAYMENT_MODES = [
   { value: 'cheque', label: 'Cheque' },
 ] as const
 
-const PAYMENT_MODE_LABEL: Record<string, string> = {
-  cash: 'Cash (नकद)',
-  upi: 'UPI / PhonePe / GPay',
-  bank_transfer: 'Bank Transfer',
-  cheque: 'Cheque',
-}
-
 const SUPABASE_MAX_ROWS = 1000
 
-const SHOP_INFO = {
-  name: 'SATGURU BEEJ BHANDAR',
-  address: 'Daloosar, Sardarshahar (Churu), Rajasthan',
-  tagline: 'मिट्टी से कटाई तक',
-}
-
-function formatINR(value: number): string {
-  return (Number(value) || 0).toLocaleString('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
-
+/* ─────────── Helpers (page-specific) ─────────── */
 function roundCurrency(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100
 }
@@ -98,42 +82,6 @@ function sanitizeText(input: string): string {
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
 }
 
-function sanitizeFilename(input: string): string {
-  return input.replace(/[^a-zA-Z0-9\-_]/g, '_').slice(0, 60)
-}
-
-function normalisePhone(raw: string | null | undefined): string | null {
-  if (!raw) return null
-  const digits = raw.replace(/\D/g, '')
-  if (digits.length < 10) return null
-  if (digits.length === 10) return `91${digits}`
-  if (digits.length === 12 && digits.startsWith('91')) return digits
-  if (digits.length === 11 && digits.startsWith('0')) return `91${digits.slice(1)}`
-  return digits.length >= 10 ? digits : null
-}
-
-function formatDateDMY(d: Date): string {
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yyyy = d.getFullYear()
-  return `${dd}/${mm}/${yyyy}`
-}
-
-function formatTime12(d: Date): string {
-  let h = d.getHours()
-  const m = String(d.getMinutes()).padStart(2, '0')
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  h = h % 12
-  if (h === 0) h = 12
-  return `${String(h).padStart(2, '0')}:${m} ${ampm}`
-}
-
-function referenceDisplay(mode: string, ref: string): string {
-  const trimmed = (ref || '').trim()
-  if (mode === 'cash') return trimmed || 'Cash Payment'
-  return trimmed || 'N/A'
-}
-
 function extractOutstanding(farmer: FarmerOption | null | undefined): number {
   if (!farmer) return 0
 
@@ -141,8 +89,14 @@ function extractOutstanding(farmer: FarmerOption | null | undefined): number {
 
   if (Array.isArray(farmer.credit_accounts) && farmer.credit_accounts.length > 0) {
     caOutstanding = Number(farmer.credit_accounts[0]?.current_outstanding)
-  } else if (farmer.credit_accounts && typeof farmer.credit_accounts === 'object' && 'current_outstanding' in farmer.credit_accounts) {
-    caOutstanding = Number((farmer.credit_accounts as CreditAccountInfo).current_outstanding)
+  } else if (
+    farmer.credit_accounts &&
+    typeof farmer.credit_accounts === 'object' &&
+    'current_outstanding' in farmer.credit_accounts
+  ) {
+    caOutstanding = Number(
+      (farmer.credit_accounts as CreditAccountInfo).current_outstanding
+    )
   }
 
   if (caOutstanding !== undefined && !isNaN(caOutstanding)) {
@@ -164,8 +118,14 @@ function extractAvailableCredit(farmer: FarmerOption | null | undefined): number
 
   if (Array.isArray(farmer.credit_accounts) && farmer.credit_accounts.length > 0) {
     caAvailable = Number(farmer.credit_accounts[0]?.available_credit)
-  } else if (farmer.credit_accounts && typeof farmer.credit_accounts === 'object' && 'available_credit' in farmer.credit_accounts) {
-    caAvailable = Number((farmer.credit_accounts as CreditAccountInfo).available_credit)
+  } else if (
+    farmer.credit_accounts &&
+    typeof farmer.credit_accounts === 'object' &&
+    'available_credit' in farmer.credit_accounts
+  ) {
+    caAvailable = Number(
+      (farmer.credit_accounts as CreditAccountInfo).available_credit
+    )
   }
 
   if (caAvailable !== undefined && !isNaN(caAvailable)) {
@@ -218,316 +178,9 @@ async function fetchAllActiveFarmers(): Promise<FarmerOption[]> {
   return all
 }
 
-const A6_WIDTH_MM = 105
-const A6_HEIGHT_MM = 148
-
-function PaymentSlipTemplate({
-  receipt,
-  slipRef,
-}: {
-  receipt: PaymentReceipt
-  slipRef: React.RefObject<HTMLDivElement | null>
-}) {
-  const paymentDate = new Date(receipt.payment_date)
-  const dateStr = formatDateDMY(paymentDate)
-  const timeStr = formatTime12(paymentDate)
-  const modeLabel = PAYMENT_MODE_LABEL[receipt.payment_mode] || receipt.payment_mode
-  const refText = referenceDisplay(receipt.payment_mode, receipt.reference_number)
-
-  const widthPx = Math.round(A6_WIDTH_MM * 3.78)
-  const heightPx = Math.round(A6_HEIGHT_MM * 3.78)
-
-  return (
-    <div
-      ref={slipRef}
-      style={{
-        width: `${widthPx}px`,
-        minHeight: `${heightPx}px`,
-        background: '#ffffff',
-        color: '#111827',
-        fontFamily:
-          '"Helvetica Neue", Helvetica, Arial, "Noto Sans Devanagari", sans-serif',
-        padding: '10px 12px',
-        boxSizing: 'border-box',
-        position: 'relative',
-        fontSize: '9px',
-        lineHeight: 1.35,
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          pointerEvents: 'none',
-          zIndex: 0,
-        }}
-      >
-        <div
-          style={{
-            transform: 'rotate(-35deg)',
-            fontSize: '22px',
-            fontWeight: 900,
-            color: 'rgba(4,120,87,0.07)',
-            whiteSpace: 'nowrap',
-            letterSpacing: '2px',
-          }}
-        >
-          SATGURU FARMER PAYMENT
-        </div>
-      </div>
-
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        <div style={{ textAlign: 'center', borderBottom: '1.5px solid #065f46', paddingBottom: '6px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 900, color: '#064e3b', letterSpacing: '0.5px' }}>
-            {SHOP_INFO.name}
-          </div>
-          <div style={{ fontSize: '7.5px', color: '#374151', marginTop: '2px' }}>
-            {SHOP_INFO.address}
-          </div>
-          <div
-            style={{
-              marginTop: '5px',
-              background: '#064e3b',
-              color: '#fef3c7',
-              display: 'inline-block',
-              padding: '2px 10px',
-              fontSize: '9px',
-              fontWeight: 800,
-              borderRadius: '3px',
-              letterSpacing: '1px',
-            }}
-          >
-            UDHAAR PAYMENT SLIP
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            marginTop: '6px',
-            fontSize: '8px',
-          }}
-        >
-          <div>
-            <div style={{ color: '#6b7280' }}>Receipt No.</div>
-            <div style={{ fontWeight: 800, color: '#111827' }}>{receipt.payment_number}</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ color: '#6b7280' }}>Date / Time</div>
-            <div style={{ fontWeight: 700 }}>{dateStr}</div>
-            <div style={{ fontWeight: 700 }}>{timeStr}</div>
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginTop: '6px',
-            padding: '5px 6px',
-            background: '#ecfdf5',
-            border: '1px solid #a7f3d0',
-            borderRadius: '4px',
-          }}
-        >
-          <div style={{ fontSize: '7px', color: '#065f46', fontWeight: 700 }}>
-            Payment Received From / भुगतान कर्ता
-          </div>
-          <div style={{ fontSize: '11px', fontWeight: 900, color: '#064e3b', marginTop: '1px' }}>
-            {receipt.farmer_name}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px', fontSize: '7.5px' }}>
-            <div>
-              <span style={{ color: '#6b7280' }}>Farmer ID: </span>
-              <span style={{ fontWeight: 700 }}>{receipt.farmer_id_code}</span>
-            </div>
-            <div>
-              <span style={{ color: '#6b7280' }}>Mob: </span>
-              <span style={{ fontWeight: 700 }}>{receipt.farmer_mobile || 'N/A'}</span>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ marginTop: '6px' }}>
-          <div
-            style={{
-              fontSize: '8px',
-              fontWeight: 800,
-              color: '#065f46',
-              borderBottom: '1px dashed #a7f3d0',
-              paddingBottom: '2px',
-              marginBottom: '3px',
-            }}
-          >
-            PAYMENT DETAILS
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px' }}>
-            <span style={{ color: '#374151' }}>Payment Mode</span>
-            <span style={{ fontWeight: 800 }}>{modeLabel}</span>
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontSize: '8px',
-              marginTop: '2px',
-            }}
-          >
-            <span style={{ color: '#374151' }}>UTR / Ref.</span>
-            <span style={{ fontWeight: 700, maxWidth: '60%', textAlign: 'right', wordBreak: 'break-all' }}>
-              {refText}
-            </span>
-          </div>
-        </div>
-
-        <div style={{ marginTop: '6px' }}>
-          <div
-            style={{
-              fontSize: '8px',
-              fontWeight: 800,
-              color: '#065f46',
-              borderBottom: '1px dashed #a7f3d0',
-              paddingBottom: '2px',
-              marginBottom: '4px',
-            }}
-          >
-            ACCOUNT SUMMARY
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '3px 5px',
-              background: '#f9fafb',
-              borderRadius: '3px',
-              marginBottom: '2px',
-            }}
-          >
-            <span style={{ fontSize: '8px', color: '#374151' }}>Outstanding Before</span>
-            <span style={{ fontSize: '9px', fontWeight: 800, color: '#374151' }}>
-              ₹{formatINR(receipt.previous_outstanding)}
-            </span>
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '4px 5px',
-              background: '#ecfdf5',
-              border: '1px solid #6ee7b7',
-              borderRadius: '3px',
-              marginBottom: '2px',
-            }}
-          >
-            <span style={{ fontSize: '8px', color: '#065f46', fontWeight: 700 }}>Payment Received</span>
-            <span style={{ fontSize: '10px', fontWeight: 900, color: '#064e3b' }}>
-              ₹{formatINR(receipt.payment_amount)}
-            </span>
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '4px 5px',
-              background: '#fff7ed',
-              border: '1px solid #fdba74',
-              borderRadius: '3px',
-            }}
-          >
-            <span style={{ fontSize: '8px', color: '#9a3412', fontWeight: 700 }}>Outstanding After</span>
-            <span style={{ fontSize: '10px', fontWeight: 900, color: '#9a3412' }}>
-              ₹{formatINR(receipt.new_outstanding)}
-            </span>
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginTop: '8px',
-            paddingTop: '5px',
-            borderTop: '1px dashed #9ca3af',
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ fontSize: '7.5px', color: '#065f46', fontWeight: 700 }}>
-            Payment received successfully.
-          </div>
-          <div style={{ fontSize: '7px', color: '#374151', marginTop: '1px' }}>
-            Thank you for choosing {SHOP_INFO.name}.
-          </div>
-          <div
-            style={{
-              marginTop: '4px',
-              fontSize: '8px',
-              fontWeight: 800,
-              color: '#064e3b',
-              letterSpacing: '0.5px',
-            }}
-          >
-            {SHOP_INFO.tagline}
-          </div>
-          <div style={{ fontSize: '7px', color: '#6b7280', marginTop: '1px' }}>
-            {SHOP_INFO.name}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-async function buildPdfBlob(node: HTMLElement): Promise<Blob> {
-  const canvas = await html2canvas(node, {
-    scale: 3,
-    backgroundColor: '#ffffff',
-    useCORS: true,
-    logging: false,
-  })
-
-  const imgData = canvas.toDataURL('image/png')
-
-  const pdf = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a6',
-    compress: true,
-  })
-
-  const pageWidth = pdf.internal.pageSize.getWidth()
-  const pageHeight = pdf.internal.pageSize.getHeight()
-
-  const margin = 0
-  const availW = pageWidth - margin * 2
-  const availH = pageHeight - margin * 2
-
-  const ratio = canvas.width / canvas.height
-  let renderW = availW
-  let renderH = renderW / ratio
-
-  if (renderH > availH) {
-    renderH = availH
-    renderW = renderH * ratio
-  }
-
-  const offsetX = (pageWidth - renderW) / 2
-  const offsetY = (pageHeight - renderH) / 2
-
-  pdf.addImage(imgData, 'PNG', offsetX, offsetY, renderW, renderH, undefined, 'FAST')
-
-  return pdf.output('blob')
-}
-
+/* ═════════════════════════════════════════════
+                 MAIN COMPONENT
+   ═════════════════════════════════════════════ */
 export default function PaymentEntry() {
   const { role, loading: authLoading } = useAuth()
 
@@ -549,6 +202,7 @@ export default function PaymentEntry() {
   const saveLockRef = useRef<boolean>(false)
   const slipRef = useRef<HTMLDivElement>(null)
 
+  /* ─── Load farmers ─── */
   const loadFarmers = useCallback(async () => {
     if (role !== 'admin') return
 
@@ -589,6 +243,7 @@ export default function PaymentEntry() {
     void loadFarmers()
   }, [loadFarmers, role, authLoading])
 
+  /* ─── Farmer select ─── */
   const handleFarmerSelect = useCallback(async (farmerId: string) => {
     if (!farmerId) {
       setSelectedFarmer(null)
@@ -631,6 +286,7 @@ export default function PaymentEntry() {
     }
   }, [])
 
+  /* ─── Manual sync ─── */
   const handleManualSync = useCallback(async () => {
     if (!selectedFarmer) return
     try {
@@ -661,6 +317,7 @@ export default function PaymentEntry() {
     }
   }, [selectedFarmer])
 
+  /* ─── Save payment ─── */
   const handleSavePayment = async (e: FormEvent) => {
     e.preventDefault()
 
@@ -701,7 +358,7 @@ export default function PaymentEntry() {
       if (!confirmed) return
     }
 
-  if (saveLockRef.current || saving) return
+    if (saveLockRef.current || saving) return
     saveLockRef.current = true
     setSaving(true)
 
@@ -716,7 +373,7 @@ export default function PaymentEntry() {
         return
       }
 
-      // 🟢 FIX: Same farmer + same amount + same mode within last 2 minutes = possible double click
+      // Duplicate guard: same farmer + amount + mode within last 2 minutes
       const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
       const { data: recentDup } = await supabase
         .from('payments')
@@ -733,15 +390,10 @@ export default function PaymentEntry() {
         return
       }
 
-      if (userError || !user) {
-        toast.error('Session expired. Please sign in again.')
-        return
-      }
-
       const cleanRef = sanitizeText(refNo)
       const cleanNotes = sanitizeText(notes)
 
-     const { data, error } = await supabase.rpc('process_farmer_payment', {
+      const { data, error } = await supabase.rpc('process_farmer_payment', {
         p_farmer_id: selectedFarmer.id,
         p_payment_amount: amt,
         p_payment_mode: paymentMode,
@@ -808,6 +460,7 @@ export default function PaymentEntry() {
     }
   }
 
+  /* ─── PDF actions ─── */
   const generatePdfBlob = useCallback(async (): Promise<Blob | null> => {
     if (!lastPayment) return null
     const node = slipRef.current
@@ -923,9 +576,7 @@ export default function PaymentEntry() {
       setTimeout(() => URL.revokeObjectURL(url), 5000)
 
       const phone = normalisePhone(lastPayment.farmer_mobile)
-      const waUrl = phone
-        ? `https://wa.me/${phone}`
-        : `https://wa.me/`
+      const waUrl = phone ? `https://wa.me/${phone}` : `https://wa.me/`
 
       toast(
         'PDF downloaded. WhatsApp खुल रहा है — कृपया डाउनलोड की गई PDF को chat में attach करें।',
@@ -941,6 +592,7 @@ export default function PaymentEntry() {
     }
   }, [lastPayment, pdfBusy, generatePdfBlob])
 
+  /* ─── Derived values ─── */
   const currentOutstanding = extractOutstanding(selectedFarmer)
   const availableCredit = extractAvailableCredit(selectedFarmer)
 
@@ -953,6 +605,7 @@ export default function PaymentEntry() {
     !syncingFarmer &&
     role === 'admin'
 
+  /* ─── Access check ─── */
   if (!authLoading && role !== 'admin') {
     return (
       <div className="max-w-2xl mx-auto p-6 bg-white rounded-3xl border border-red-200 text-center space-y-2">
@@ -965,6 +618,7 @@ export default function PaymentEntry() {
     )
   }
 
+  /* ─── Render ─── */
   return (
     <div className="max-w-2xl mx-auto space-y-6 font-sans">
       {/* Header */}
@@ -985,12 +639,8 @@ export default function PaymentEntry() {
         noValidate
       >
         <div>
-          <label
-            htmlFor="farmer-select"
-            className="block font-bold text-gray-700 mb-1"
-          >
-            किसान का चयन करें (Select Farmer){' '}
-            <span className="text-rose-500">*</span>
+          <label htmlFor="farmer-select" className="block font-bold text-gray-700 mb-1">
+            किसान का चयन करें (Select Farmer) <span className="text-rose-500">*</span>
           </label>
           <select
             id="farmer-select"
@@ -1033,10 +683,7 @@ export default function PaymentEntry() {
                 <div className="text-xl sm:text-2xl text-rose-700 font-mono font-black">
                   {syncingFarmer ? (
                     <span className="inline-flex items-center gap-1.5 text-base">
-                      <Loader2
-                        size={16}
-                        className="animate-spin text-emerald-700"
-                      />
+                      <Loader2 size={16} className="animate-spin text-emerald-700" />
                       अपडेट हो रहा है...
                     </span>
                   ) : (
@@ -1045,9 +692,7 @@ export default function PaymentEntry() {
                 </div>
               </div>
               <div className="sm:text-right">
-                <p className="text-xs text-emerald-800 font-bold">
-                  Available Credit Limit:
-                </p>
+                <p className="text-xs text-emerald-800 font-bold">Available Credit Limit:</p>
                 <p className="text-base sm:text-lg text-emerald-900 font-mono font-bold">
                   ₹{formatINR(availableCredit)}
                 </p>
@@ -1060,10 +705,7 @@ export default function PaymentEntry() {
               disabled={syncingFarmer || saving}
               className="flex items-center gap-1.5 text-xs text-emerald-700 hover:text-emerald-900 font-bold transition-colors disabled:opacity-50"
             >
-              <RefreshCw
-                size={12}
-                className={syncingFarmer ? 'animate-spin' : ''}
-              />
+              <RefreshCw size={12} className={syncingFarmer ? 'animate-spin' : ''} />
               खाता Balance Re-calculate करें
             </button>
           </div>
@@ -1071,10 +713,7 @@ export default function PaymentEntry() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label
-              htmlFor="payment-amount"
-              className="block font-bold text-gray-700 mb-1"
-            >
+            <label htmlFor="payment-amount" className="block font-bold text-gray-700 mb-1">
               पेमेंट राशि (Amount ₹) <span className="text-rose-500">*</span>
             </label>
             <input
@@ -1107,10 +746,7 @@ export default function PaymentEntry() {
           </div>
 
           <div>
-            <label
-              htmlFor="payment-mode"
-              className="block font-bold text-gray-700 mb-1"
-            >
+            <label htmlFor="payment-mode" className="block font-bold text-gray-700 mb-1">
               पेमेंट मोड (Mode) <span className="text-rose-500">*</span>
             </label>
             <select
@@ -1146,10 +782,7 @@ export default function PaymentEntry() {
         </div>
 
         <div>
-          <label
-            htmlFor="payment-notes"
-            className="block font-bold text-gray-700 mb-1"
-          >
+          <label htmlFor="payment-notes" className="block font-bold text-gray-700 mb-1">
             Notes (टिप्पणी)
           </label>
           <input
@@ -1180,6 +813,7 @@ export default function PaymentEntry() {
         </button>
       </form>
 
+      {/* Receipt Preview */}
       {lastPayment && (
         <div className="p-4 sm:p-5 bg-white border border-emerald-200 rounded-2xl space-y-4 shadow-sm animate-in fade-in duration-300">
           <div className="flex items-center justify-center gap-2 text-emerald-900 font-bold text-xs sm:text-sm">
@@ -1187,98 +821,152 @@ export default function PaymentEntry() {
             रसीद तैयार है — Receipt No: {lastPayment.payment_number}
           </div>
 
-          {/* Preview card */}
-          <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-amber-50 p-4">
-            <div className="text-center border-b border-emerald-200 pb-2 mb-3">
-              <div className="text-base font-black text-emerald-900">
-                {SHOP_INFO.name}
-              </div>
-              <div className="text-[10px] text-gray-600">{SHOP_INFO.address}</div>
-              <div className="inline-block mt-1 px-3 py-0.5 bg-emerald-800 text-amber-100 text-[10px] font-bold rounded tracking-wider">
-                UDHAAR PAYMENT SLIP
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-              <div>
-                <div className="text-gray-500">Receipt No</div>
-                <div className="font-bold text-gray-800">
-                  {lastPayment.payment_number}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-gray-500">Date / Time</div>
-                <div className="font-bold text-gray-800">
-                  {formatDateDMY(new Date(lastPayment.payment_date))}
-                </div>
-                <div className="font-bold text-gray-800">
-                  {formatTime12(new Date(lastPayment.payment_date))}
-                </div>
+          {/* On-screen Preview Card (watermark + styled) */}
+          <div className="rounded-xl border-2 border-emerald-700 bg-white overflow-hidden shadow-lg relative">
+            {/* Watermark preview */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none overflow-hidden z-0">
+              <div
+                style={{ transform: 'rotate(-32deg)' }}
+                className="flex flex-col gap-3 items-center"
+              >
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="text-2xl font-black tracking-widest"
+                    style={{ color: 'rgba(6, 78, 59, 0.08)' }}
+                  >
+                    SATGURU PAYMENTS
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="bg-white rounded-lg p-2 border border-emerald-100 text-xs mb-2">
-              <div className="text-[10px] text-emerald-700 font-bold">
-                Payment Received From
+            <div className="relative z-10">
+              {/* Header */}
+              <div className="bg-gradient-to-br from-emerald-900 to-emerald-700 text-white text-center p-4 border-b-4 border-amber-500">
+                <div className="text-lg font-black tracking-wide">{SHOP_INFO.name}</div>
+                <div className="text-[10px] text-emerald-100 mt-1">{SHOP_INFO.address}</div>
+                <div className="text-[10px] text-amber-200 italic font-bold mt-0.5">
+                  {SHOP_INFO.tagline}
+                </div>
               </div>
-              <div className="font-black text-emerald-900 text-sm">
-                {lastPayment.farmer_name}
-              </div>
-              <div className="flex justify-between text-[11px] mt-1">
-                <span>
-                  <span className="text-gray-500">ID: </span>
-                  <span className="font-bold">{lastPayment.farmer_id_code}</span>
-                </span>
-                <span>
-                  <span className="text-gray-500">Mob: </span>
-                  <span className="font-bold">
-                    {lastPayment.farmer_mobile || 'N/A'}
+
+              <div className="p-4 space-y-3">
+                <div className="text-center">
+                  <span className="inline-block bg-amber-500 text-emerald-900 border-2 border-emerald-900 px-4 py-1 text-xs font-black rounded-full tracking-widest">
+                    UDHAAR PAYMENT SLIP
                   </span>
-                </span>
-              </div>
-            </div>
+                </div>
 
-            <div className="text-xs space-y-1 mb-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Payment Mode</span>
-                <span className="font-bold">
-                  {PAYMENT_MODE_LABEL[lastPayment.payment_mode] ||
-                    lastPayment.payment_mode}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">UTR / Ref.</span>
-                <span className="font-mono font-bold text-right break-all max-w-[60%]">
-                  {referenceDisplay(
-                    lastPayment.payment_mode,
-                    lastPayment.reference_number
-                  )}
-                </span>
-              </div>
-            </div>
+                <div className="flex justify-between bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 text-xs">
+                  <div>
+                    <div className="text-[9px] text-emerald-700 font-bold">RECEIPT NO.</div>
+                    <div className="font-black text-emerald-900">
+                      {lastPayment.payment_number}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[9px] text-emerald-700 font-bold">DATE & TIME</div>
+                    <div className="font-black text-emerald-900">
+                      {formatDateDMY(new Date(lastPayment.payment_date))}
+                    </div>
+                    <div className="font-bold text-emerald-900 text-[11px]">
+                      {formatTime12(new Date(lastPayment.payment_date))}
+                    </div>
+                  </div>
+                </div>
 
-            <div className="space-y-1">
-              <div className="flex justify-between bg-gray-50 rounded px-2 py-1 text-xs">
-                <span>Outstanding Before</span>
-                <span className="font-bold">
-                  ₹{formatINR(lastPayment.previous_outstanding)}
-                </span>
-              </div>
-              <div className="flex justify-between bg-emerald-100 rounded px-2 py-1 text-xs border border-emerald-200">
-                <span className="font-bold text-emerald-900">
-                  Payment Received
-                </span>
-                <span className="font-black text-emerald-900">
-                  ₹{formatINR(lastPayment.payment_amount)}
-                </span>
-              </div>
-              <div className="flex justify-between bg-amber-100 rounded px-2 py-1 text-sm border border-amber-200">
-                <span className="font-bold text-amber-900">
-                  Outstanding After
-                </span>
-                <span className="font-black text-amber-900">
-                  ₹{formatINR(lastPayment.new_outstanding)}
-                </span>
+                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-2 border-emerald-500 rounded-lg p-2.5">
+                  <div className="text-[9px] text-emerald-800 font-black tracking-wide">
+                    ◆ PAYMENT RECEIVED FROM
+                  </div>
+                  <div className="font-black text-emerald-900 text-base border-b border-dashed border-emerald-600 pb-1 mt-1">
+                    {lastPayment.farmer_name}
+                  </div>
+                  <div className="flex justify-between text-xs mt-2">
+                    <span>
+                      <span className="text-emerald-700 font-bold">ID: </span>
+                      <span className="font-black text-emerald-900">
+                        {lastPayment.farmer_id_code}
+                      </span>
+                    </span>
+                    <span>
+                      <span className="text-emerald-700 font-bold">Mob: </span>
+                      <span className="font-black text-emerald-900">
+                        {lastPayment.farmer_mobile || 'N/A'}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="bg-emerald-900 text-white text-[10px] font-black px-2 py-1 rounded-t tracking-wider">
+                    ◆ PAYMENT DETAILS
+                  </div>
+                  <div className="border-2 border-emerald-900 border-t-0 rounded-b p-2 bg-white text-xs">
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-gray-700 font-semibold">Payment Mode</span>
+                      <span className="font-black text-emerald-900">
+                        {PAYMENT_MODE_LABEL[lastPayment.payment_mode] || lastPayment.payment_mode}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-0.5 border-t border-dotted border-gray-300 mt-1 pt-1">
+                      <span className="text-gray-700 font-semibold">UTR / Ref.</span>
+                      <span className="font-bold font-mono text-emerald-900 text-right break-all max-w-[60%]">
+                        {referenceDisplay(
+                          lastPayment.payment_mode,
+                          lastPayment.reference_number
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="bg-emerald-900 text-white text-[10px] font-black px-2 py-1 rounded-t tracking-wider">
+                    ◆ ACCOUNT SUMMARY
+                  </div>
+                  <div className="border-2 border-emerald-900 border-t-0 rounded-b p-2 bg-white space-y-1.5">
+                    <div className="flex justify-between bg-gray-100 border-l-4 border-gray-500 rounded px-2 py-1.5 text-xs">
+                      <span className="font-bold text-gray-700">Outstanding Before</span>
+                      <span className="font-black text-gray-700">
+                        ₹{formatINR(lastPayment.previous_outstanding)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between bg-gradient-to-r from-emerald-50 to-emerald-200 border-2 border-emerald-600 rounded px-2 py-1.5 text-sm">
+                      <span className="font-black text-emerald-900">✓ Payment Received</span>
+                      <span className="font-black text-emerald-900">
+                        ₹{formatINR(lastPayment.payment_amount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between bg-gradient-to-r from-amber-50 to-amber-200 border-2 border-orange-600 rounded px-2 py-1.5 text-sm">
+                      <span className="font-black text-orange-900">Outstanding After</span>
+                      <span className="font-black text-orange-900">
+                        ₹{formatINR(lastPayment.new_outstanding)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {lastPayment.notes && (
+                  <div className="bg-yellow-50 border border-dashed border-yellow-600 rounded px-2 py-1 text-xs">
+                    <span className="font-black text-yellow-900">Note: </span>
+                    <span className="text-yellow-900">{lastPayment.notes}</span>
+                  </div>
+                )}
+
+                <div className="border-t-2 border-dashed border-emerald-900 pt-2 text-center">
+                  <div className="text-xs font-black text-emerald-900">
+                    ✓ Payment Received Successfully
+                  </div>
+                  <div className="text-[10px] text-gray-600 mt-0.5">
+                    Thank you for choosing {SHOP_INFO.name}
+                  </div>
+                  <div className="flex justify-between text-[9px] text-gray-500 border-t border-gray-200 pt-1 mt-1.5">
+                    <span>📞 {SHOP_INFO.phone}</span>
+                    <span className="font-bold text-emerald-900">Computer Generated Slip</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1291,11 +979,7 @@ export default function PaymentEntry() {
               disabled={pdfBusy}
               className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow transition-colors cursor-pointer"
             >
-              {pdfBusy ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Download size={14} />
-              )}
+              {pdfBusy ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               Download PDF
             </button>
             <button
@@ -1304,11 +988,7 @@ export default function PaymentEntry() {
               disabled={pdfBusy}
               className="px-4 py-2.5 bg-slate-700 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow transition-colors cursor-pointer"
             >
-              {pdfBusy ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Printer size={14} />
-              )}
+              {pdfBusy ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
               Print Slip
             </button>
             <button
@@ -1317,11 +997,7 @@ export default function PaymentEntry() {
               disabled={pdfBusy}
               className="px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow transition-colors cursor-pointer"
             >
-              {pdfBusy ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Share2 size={14} />
-              )}
+              {pdfBusy ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
               WhatsApp PDF
             </button>
           </div>
@@ -1345,7 +1021,10 @@ export default function PaymentEntry() {
           }}
           aria-hidden="true"
         >
-          <PaymentSlipTemplate receipt={lastPayment} slipRef={slipRef as React.RefObject<HTMLDivElement>} />
+          <PaymentSlipTemplate
+            receipt={lastPayment}
+            slipRef={slipRef as React.RefObject<HTMLDivElement>}
+          />
         </div>
       )}
     </div>
