@@ -28,6 +28,7 @@ interface SalesBillItem {
   product_name: string | null
   quantity: number
   rate: number
+  purchase_rate?: number
   total_amount: number
   already_returned?: number
   remaining_returnable?: number
@@ -51,6 +52,7 @@ interface ReturnRpcResult {
   return_id: string
   return_number: string
   return_amount: number
+  return_rate_used?: number
   return_quantity: number
   remaining_returnable_quantity: number
   new_batch_quantity: number
@@ -83,6 +85,7 @@ export default function ProductReturns() {
   const [billId, setBillId] = useState('')
   const [itemId, setItemId] = useState('')
   const [qty, setQty] = useState('1')
+  const [customRate, setCustomRate] = useState<string>('')
   const [reason, setReason] = useState('')
   const [currentOs, setCurrentOs] = useState<number | null>(null)
 
@@ -91,7 +94,6 @@ export default function ProductReturns() {
   const [loadingItems, setLoadingItems] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Search state for history table
   const [searchQuery, setSearchQuery] = useState('')
 
   const isMounted = useRef(true)
@@ -115,6 +117,18 @@ export default function ProductReturns() {
   const remainingForSelected = selectedItem
     ? safeQty(selectedItem.remaining_returnable ?? selectedItem.quantity)
     : 0
+
+  // When selectedItem changes, default the custom return rate to purchase_rate or sale_rate
+  useEffect(() => {
+    if (selectedItem) {
+      const rateToUse = selectedItem.purchase_rate && selectedItem.purchase_rate > 0 
+        ? selectedItem.purchase_rate 
+        : selectedItem.rate
+      setCustomRate(String(rateToUse || ''))
+    } else {
+      setCustomRate('')
+    }
+  }, [selectedItem])
 
   const loadFarmerOs = useCallback(async (fid: string) => {
     if (!fid) {
@@ -298,6 +312,7 @@ export default function ProductReturns() {
             product_name: `पर्ची बिल वापसी (Physical Bill Return) ${targetBill.notes ? ' - ' + targetBill.notes : ''}`,
             quantity: 1,
             rate: targetBill.total_amount,
+            purchase_rate: targetBill.total_amount,
             total_amount: targetBill.total_amount,
             already_returned: already,
             remaining_returnable: remaining,
@@ -307,6 +322,7 @@ export default function ProductReturns() {
         return
       }
 
+      // Load digital bill items with batch purchase_rate
       const { data, error } = await supabase
         .from('sales_bill_items')
         .select('id, product_id, batch_id, product_name, quantity, rate, total_amount')
@@ -318,6 +334,20 @@ export default function ProductReturns() {
 
       const items = data || []
       const itemIds = items.map((i) => i.id)
+      const batchIds = items.map((i) => i.batch_id).filter(Boolean) as string[]
+
+      // Fetch batch purchase rates
+      let batchRateMap: Record<string, number> = {}
+      if (batchIds.length > 0) {
+        const { data: batchData } = await supabase
+          .from('inventory_batches')
+          .select('id, purchase_rate')
+          .in('id', batchIds)
+
+        for (const b of batchData || []) {
+          if (b.id) batchRateMap[b.id] = safeQty(b.purchase_rate)
+        }
+      }
 
       let returnedMap: Record<string, number> = {}
       if (itemIds.length > 0) {
@@ -342,6 +372,7 @@ export default function ProductReturns() {
         items.map((item) => {
           const already = returnedMap[item.id] || 0
           const qty = safeQty(item.quantity)
+          const pRate = item.batch_id ? batchRateMap[item.batch_id] : 0
           return {
             id: item.id,
             product_id: item.product_id ?? null,
@@ -349,6 +380,7 @@ export default function ProductReturns() {
             product_name: item.product_name ?? null,
             quantity: qty,
             rate: safeQty(item.rate),
+            purchase_rate: pRate > 0 ? pRate : safeQty(item.rate),
             total_amount: safeQty(item.total_amount),
             already_returned: already,
             remaining_returnable: Math.max(0, Number((qty - already).toFixed(3))),
@@ -387,7 +419,6 @@ export default function ProductReturns() {
   const handleReturn = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // 🔧 FIX #8 & #409: Direct block double submittal state
     if (saveLockRef.current || saving) return
 
     if (!farmerId || !billId || !itemId) {
@@ -400,21 +431,21 @@ export default function ProductReturns() {
       return
     }
 
-const returnQty = safeQty(qty)
-const isPhysicalReturn = selectedBill?.is_physical === true
+    const returnQty = safeQty(qty)
+    const isPhysicalReturn = selectedBill?.is_physical === true
 
-if (
-  !Number.isFinite(returnQty) ||
-  returnQty <= 0 ||
-  (!isPhysicalReturn && !Number.isSafeInteger(returnQty))
-) {
-  toast.error(
-    isPhysicalReturn
-      ? 'Valid return amount दर्ज करें.'
-      : 'Return quantity केवल पूर्ण संख्या में दर्ज करें (1, 2, 3...).'
-  )
-  return
-}
+    if (
+      !Number.isFinite(returnQty) ||
+      returnQty <= 0 ||
+      (!isPhysicalReturn && !Number.isSafeInteger(returnQty))
+    ) {
+      toast.error(
+        isPhysicalReturn
+          ? 'Valid return amount दर्ज करें.'
+          : 'Return quantity केवल पूर्ण संख्या में दर्ज करें (1, 2, 3...).'
+      )
+      return
+    }
     if (!selectedItem) {
       toast.error('Selected bill item नहीं मिला.')
       return
@@ -445,12 +476,14 @@ if (
 
     try {
       let rpcName = 'process_product_return'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let payload: any = {
         p_farmer_id: farmerId,
         p_bill_id: billId,
         p_bill_item_id: itemId,
         p_quantity: returnQty,
         p_reason: reason.trim(),
+        p_return_rate: safeQty(customRate) > 0 ? safeQty(customRate) : null,
       }
 
       if (isPhysical) {
@@ -475,7 +508,7 @@ if (
       let msg = `Return ${result.return_number} saved. Amount ₹${formatINR(safeQty(result.return_amount))}.`
       
       if (isCashBill) {
-        msg += ' स्टॉक (Stock) रीस्टोर हो गया। नकद (Cash) बिल होने के कारण खाता अपरिवर्तित रहा।'
+        msg += ' स्टॉक रीस्टोर हो गया। नकद (Cash) बिल होने के कारण खाता अपरिवर्तित रहा।'
       } else {
         msg += ` Outstanding: ₹${formatINR(osBefore)} → ₹${formatINR(osAfter)}.`
         if (osBefore <= 0 || reduced === 0) {
@@ -561,14 +594,8 @@ if (
         <p className="flex gap-2 font-semibold">
           <Info size={14} className="shrink-0 mt-0.5" />
           <span>
-            <strong>Outstanding rule:</strong> Return stock hamesha restore hoga. Outstanding sirf
-            actual receivable tak reduce hoga — <strong>₹0 se neeche nahi</strong> (fully paid bill
-            return par OS 0 hi rahega, -₹1000 nahi bane ga).
+            <strong>Outstanding rule:</strong> Return stock hamesha restore hoga. Return calculation company purchase rate par hoti hai.
           </span>
-        </p>
-        <p className="font-semibold text-amber-800">
-          Remaining returnable qty = original sold − already returned (DB-enforced, partial returns
-          safe).
         </p>
       </div>
 
@@ -634,7 +661,6 @@ if (
                 <option value="">{loadingBills ? 'Loading bills...' : '-- Select Bill --'}</option>
                 {bills.map((bill) => (
                   <option key={bill.id} value={bill.id}>
-                    {/* 🔧 FIX #NODE-FOUND: Single line template string prevent React text-splitting DOM crash */}
                     {`${bill.is_physical ? '📝 ' : '💻 '}${bill.bill_number || 'N/A'} | ${bill.bill_date || '—'} | ₹${formatINR(bill.total_amount)}${bill.bill_type ? ' | ' + bill.bill_type.toUpperCase() : ''}${bill.is_physical ? ' (PHYSICAL)' : ''}`}
                   </option>
                 ))}
@@ -658,8 +684,7 @@ if (
                 </option>
                 {billItems.map((item) => (
                   <option key={item.id} value={item.id} disabled={(item.remaining_returnable || 0) <= 0}>
-                    {/* 🔧 FIX #NODE-FOUND: Single line template string prevent React text-splitting DOM crash */}
-                    {`${item.product_name || 'Product'}${selectedBill?.is_physical ? '' : ' | Sold ' + item.quantity} | Left ${selectedBill?.is_physical ? '₹' + formatINR(item.remaining_returnable || 0) : item.remaining_returnable}${selectedBill?.is_physical ? '' : ' | ₹' + formatINR(item.rate)}${!selectedBill?.is_physical && !item.batch_id ? ' | Batch Missing' : ''}${(item.remaining_returnable || 0) <= 0 ? ' | FULLY RETURNED' : ''}`}
+                    {`${item.product_name || 'Product'}${selectedBill?.is_physical ? '' : ' | Sold Qty: ' + item.quantity} | Remaining: ${selectedBill?.is_physical ? '₹' + formatINR(item.remaining_returnable || 0) : item.remaining_returnable}${(item.remaining_returnable || 0) <= 0 ? ' | FULLY RETURNED' : ''}`}
                   </option>
                 ))}
               </select>
@@ -669,48 +694,57 @@ if (
               <label htmlFor="return-qty" className="block font-bold text-gray-700 mb-1">
                 {selectedBill?.is_physical ? 'Return Amount (₹ रुपये) *' : 'Return Quantity *'}
               </label>
-             <input
-  id="return-qty"
-  type="number"
-  step={selectedBill?.is_physical ? '0.01' : '1'}
-  min={selectedBill?.is_physical ? '0.01' : '1'}
-  required
-  value={qty}
-  disabled={saving}
-  onChange={(e) => setQty(e.target.value)}
-  onKeyDown={(e) => {
-    if (
-      !selectedBill?.is_physical &&
-      ['.', ',', 'e', 'E', '+', '-'].includes(e.key)
-    ) {
-      e.preventDefault()
-    }
-  }}
-  className="w-full p-2.5 border border-gray-200 rounded-xl font-black disabled:opacity-50 text-xs sm:text-sm"
-/>
-              {selectedItem && (
+              <input
+                id="return-qty"
+                type="number"
+                step={selectedBill?.is_physical ? '0.01' : '1'}
+                min={selectedBill?.is_physical ? '0.01' : '1'}
+                required
+                value={qty}
+                disabled={saving}
+                onChange={(e) => setQty(e.target.value)}
+                onKeyDown={(e) => {
+                  if (
+                    !selectedBill?.is_physical &&
+                    ['.', ',', 'e', 'E', '+', '-'].includes(e.key)
+                  ) {
+                    e.preventDefault()
+                  }
+                }}
+                className="w-full p-2.5 border border-gray-200 rounded-xl font-black disabled:opacity-50 text-xs sm:text-sm"
+              />
+            </div>
+
+            {!selectedBill?.is_physical && selectedItem && (
+              <div>
+                <label htmlFor="return-rate" className="block font-bold text-emerald-800 mb-1">
+                  Return Rate per unit (₹) *
+                  <span className="text-[10px] text-gray-500 font-normal ml-1">
+                    (Default: Company Purchase Cost)
+                  </span>
+                </label>
+                <input
+                  id="return-rate"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={customRate}
+                  disabled={saving}
+                  onChange={(e) => setCustomRate(e.target.value)}
+                  className="w-full p-2.5 border border-emerald-300 rounded-xl font-black bg-emerald-50/50 text-emerald-950 text-xs sm:text-sm"
+                />
                 <div className="text-[11px] text-gray-500 mt-1 space-y-0.5 font-semibold">
-                  {selectedBill?.is_physical ? (
-                    <p>
-                      Original Bill Amount: <strong>₹{formatINR(selectedItem.total_amount)}</strong> | Already returned:{' '}
-                      <strong>₹{formatINR(selectedItem.already_returned || 0)}</strong>
-                    </p>
-                  ) : (
-                    <p>
-                      Original sold: <strong>{selectedItem.quantity}</strong> | Already returned:{' '}
-                      <strong>{selectedItem.already_returned || 0}</strong>
-                    </p>
-                  )}
                   <p>
-                    Remaining returnable:{' '}
-                    <strong>
-                      {selectedBill?.is_physical ? `₹${formatINR(remainingForSelected)}` : remainingForSelected}
-                    </strong>{' '}
-                    {selectedBill?.is_physical ? '' : `| Rate: ₹${formatINR(selectedItem.rate)} | Est. amount: ₹${formatINR(remainingForSelected > 0 ? safeQty(qty) * selectedItem.rate : 0)}`}
+                    Selling Price: <strong>₹{formatINR(selectedItem.rate)}</strong> | Company Cost:{' '}
+                    <strong className="text-emerald-700">₹{formatINR(selectedItem.purchase_rate || 0)}</strong>
+                  </p>
+                  <p className="text-emerald-800 font-bold">
+                    Est. Total Return Credit: ₹{formatINR(safeQty(qty) * safeQty(customRate))}
                   </p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           <div>
