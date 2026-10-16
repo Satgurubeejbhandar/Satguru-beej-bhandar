@@ -1,34 +1,40 @@
 import { useState, useMemo } from 'react'
-import { Keyboard, Search, Zap, Command, Layers, X, ShieldCheck } from 'lucide-react'
+import {
+  Keyboard, Search, Zap, Command, Layers, X,
+  ShieldCheck, CheckCircle2, Info
+} from 'lucide-react'
 
 interface ShortcutItem {
   id: string
   keys: string[]
   action: string
   category: 'Billing' | 'Navigation' | 'System'
+  active: boolean  // ← kya yeh shortcut actually kaam karta hai?
 }
 
 const SHORTCUTS: ShortcutItem[] = [
   // 🧾 Billing & Sales
-  { id: 'new_bill', keys: ['Alt', 'N'], action: 'Create New Sale / Udhaar Bill', category: 'Billing' },
-  { id: 'search_product', keys: ['F2'], action: 'Focus Product Search Bar', category: 'Billing' },
-  { id: 'save_bill', keys: ['Ctrl', 'Enter'], action: 'Save & Print Current Bill', category: 'Billing' },
-  { id: 'cancel_modal', keys: ['Esc'], action: 'Close Modal / Cancel Action', category: 'Billing' },
+  { id: 'new_bill', keys: ['Alt', 'N'], action: 'Open Billing POS (New Bill)', category: 'Billing', active: true },
+  { id: 'save_bill', keys: ['Ctrl', 'Enter'], action: 'Save & Print Bill (on Billing page)', category: 'Billing', active: false },
+  { id: 'cancel_modal', keys: ['Esc'], action: 'Go Back to Dashboard / Close Modal', category: 'Billing', active: true },
 
   // 🧭 Navigation
-  { id: 'quick_actions', keys: ['Alt', 'Q'], action: 'Open Mobile Quick Actions Menu', category: 'Navigation' },
-  { id: 'farmer_search', keys: ['Alt', 'F'], action: 'Open Farmer Master Search', category: 'Navigation' },
-  { id: 'stock_view', keys: ['Alt', 'S'], action: 'Check Live Stock (Sara Saman)', category: 'Navigation' },
+  { id: 'dashboard', keys: ['Alt', 'D'], action: 'Go to Dashboard', category: 'Navigation', active: true },
+  { id: 'quick_actions', keys: ['Alt', 'Q'], action: 'Open Quick Actions', category: 'Navigation', active: true },
+  { id: 'farmer_search', keys: ['Alt', 'F'], action: 'Open Farmer Search', category: 'Navigation', active: true },
+  { id: 'stock_view', keys: ['Alt', 'S'], action: 'Open Sara Saman (Stock)', category: 'Navigation', active: true },
+  { id: 'ledger', keys: ['Alt', 'L'], action: 'Open Farmer Ledger', category: 'Navigation', active: true },
+  { id: 'payments', keys: ['Alt', 'P'], action: 'Open Payments', category: 'Navigation', active: true },
+  { id: 'reports', keys: ['Alt', 'R'], action: 'Open Reports Hub', category: 'Navigation', active: true },
+  { id: 'ctrl_k', keys: ['Ctrl', 'K'], action: 'Quick Search (Farmer Search)', category: 'Navigation', active: true },
 
-  // ⚙️ System & Browser
-  { id: 'hard_refresh', keys: ['Ctrl', 'Shift', 'R'], action: 'Hard Refresh Page (Clear Cache)', category: 'System' },
-  { id: 'toggle_sidebar', keys: ['Ctrl', 'B'], action: 'Collapse / Expand Navigation Sidebar', category: 'System' },
+  // ⚙️ System
+  { id: 'hard_refresh', keys: ['Ctrl', 'Shift', 'R'], action: 'Hard Refresh Page (Clear Cache)', category: 'System', active: true },
 ]
 
 export default function KeyboardShortcuts() {
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Filter shortcuts by search query
   const filteredShortcuts = useMemo(() => {
     if (!searchTerm.trim()) return SHORTCUTS
     const term = searchTerm.toLowerCase().trim()
@@ -40,7 +46,6 @@ export default function KeyboardShortcuts() {
     )
   }, [searchTerm])
 
-  // Group by category
   const categories = useMemo(() => ['Billing', 'Navigation', 'System'] as const, [])
 
   return (
@@ -49,24 +54,33 @@ export default function KeyboardShortcuts() {
       <div className="bg-gradient-to-r from-emerald-900 to-emerald-950 text-white p-6 rounded-3xl shadow-xl flex justify-between items-center">
         <div>
           <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
-            <Keyboard className="text-amber-400 shrink-0" size={28} /> Shortcuts &amp; Hotkeys
+            <Keyboard className="text-amber-400 shrink-0" size={28} /> Shortcuts & Hotkeys
           </h1>
           <p className="text-emerald-200 text-xs mt-1 flex items-center gap-1">
             <ShieldCheck size={14} className="text-emerald-400" />
-            Speed up daily billing, POS, and stock operations
+            Global keyboard shortcuts — kisi bhi admin page pe kaam karte hain
           </p>
         </div>
-        <div className="p-3 bg-emerald-800/80 rounded-2xl border border-emerald-700 hidden sm:block shadow-xs">
+        <div className="p-3 bg-emerald-800/80 rounded-2xl border border-emerald-700 hidden sm:block">
           <Command size={22} className="text-amber-400" />
         </div>
       </div>
 
-      {/* Search Input */}
+      {/* Active Info Banner */}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-start gap-2">
+        <Info size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+        <p className="text-[11px] text-emerald-800 font-medium">
+          <strong>Active</strong> shortcuts globally kaam karte hain (jab aap input field mein type nahi kar rahe hote).
+          <strong> Coming Soon</strong> shortcuts sirf specific pages pe kaam karenge.
+        </p>
+      </div>
+
+      {/* Search */}
       <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
         <Search size={18} className="text-slate-400 ml-1 shrink-0" />
         <input
           type="text"
-          placeholder="Search shortcut by key or action (e.g. 'F2', 'Bill', 'Alt')..."
+          placeholder="Search shortcut (e.g. 'Alt', 'Bill', 'Stock')..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           aria-label="Search keyboard shortcuts"
@@ -76,18 +90,17 @@ export default function KeyboardShortcuts() {
           <button
             type="button"
             onClick={() => setSearchTerm('')}
-            aria-label="Clear shortcut search"
-            className="text-xs font-bold text-slate-400 hover:text-slate-600 px-2 shrink-0 p-1"
+            className="text-slate-400 hover:text-slate-600 p-1"
           >
             <X size={14} />
           </button>
         )}
       </div>
 
-      {/* Categories & Shortcuts List */}
+      {/* Shortcuts List */}
       <div className="space-y-5">
         {filteredShortcuts.length === 0 ? (
-          <div className="bg-white p-8 rounded-3xl border border-slate-200 text-center text-slate-400 text-xs font-semibold">
+          <div className="bg-white p-8 rounded-3xl border text-center text-slate-400 text-xs font-semibold">
             No shortcuts found matching "{searchTerm}"
           </div>
         ) : (
@@ -98,30 +111,33 @@ export default function KeyboardShortcuts() {
             return (
               <div key={cat} className="space-y-2">
                 <div className="flex items-center gap-1.5 px-2">
-                  {cat === 'Billing' && <Zap size={14} className="text-amber-500 shrink-0" />}
-                  {cat === 'Navigation' && <Layers size={14} className="text-emerald-600 shrink-0" />}
-                  {cat === 'System' && <Command size={14} className="text-blue-500 shrink-0" />}
+                  {cat === 'Billing' && <Zap size={14} className="text-amber-500" />}
+                  {cat === 'Navigation' && <Layers size={14} className="text-emerald-600" />}
+                  {cat === 'System' && <Command size={14} className="text-blue-500" />}
                   <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                    {cat} Shortcuts
+                    {cat}
                   </h2>
                 </div>
 
-                <div 
-                  className="bg-white rounded-3xl border border-slate-200 shadow-sm divide-y divide-slate-100 overflow-hidden"
-                  role="list"
-                  aria-label={`${cat} shortcuts list`}
-                >
+                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm divide-y divide-slate-100 overflow-hidden">
                   {catItems.map((item) => (
                     <div
                       key={item.id}
-                      role="listitem"
                       className="p-4 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors"
                     >
-                      <span className="text-xs font-bold text-slate-800 flex-1">
-                        {item.action}
-                      </span>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {item.active ? (
+                          <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+                        ) : (
+                          <span className="text-[9px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full border border-amber-200 shrink-0">
+                            SOON
+                          </span>
+                        )}
+                        <span className="text-xs font-bold text-slate-800 truncate">
+                          {item.action}
+                        </span>
+                      </div>
 
-                      {/* Styled KBD Key Badges */}
                       <div className="flex items-center gap-1 shrink-0 font-mono">
                         {item.keys.map((k, idx) => (
                           <span key={idx} className="flex items-center gap-1">

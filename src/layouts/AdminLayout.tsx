@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, type FC } from 'reac
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useAdminSessionGuard } from '../lib/useAdminSessionGuard'
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { UserSearch } from 'lucide-react';
 import {
   Users, Receipt, Package, Truck, BarChart3, Settings, ShieldCheck,
@@ -49,7 +50,9 @@ const NAV_CATEGORIES: readonly NavCategory[] = [
     items: [
       { name: 'Dashboard', path: '/admin', icon: Store, exact: true },
       { name: 'Quick Actions', path: '/admin/quick', icon: Rocket },
+      { name: 'Module Directory', path: '/admin/modules', icon: LayoutGrid },
       { name: 'Getting Started', path: '/admin/getting-started', icon: BookMarked },
+      { name: 'डेली बही खाता', path: '/admin/bahi-khata', icon: BookOpen },
     ],
   },
   {
@@ -194,7 +197,6 @@ const NAV_CATEGORIES: readonly NavCategory[] = [
     emoji: '⚙️',
     icon: Settings,
     items: [
-      { name: 'Module Directory', path: '/admin/modules', icon: LayoutGrid },
       { name: 'Feature Flags', path: '/admin/feature-flags', icon: ToggleLeft },
       { name: 'Maintenance', path: '/admin/maintenance', icon: Construction },
       { name: 'Table Counts', path: '/admin/table-counts', icon: Table2 },
@@ -257,6 +259,7 @@ const AdminLayout: FC = () => {
   const dropdownRef = useRef<HTMLDivElement | null>(null)
 
   useAdminSessionGuard()
+  useKeyboardShortcuts()
 
   // Auth guard
   useEffect(() => {
@@ -475,14 +478,15 @@ const AdminLayout: FC = () => {
             </div>
 
             <button
-              type="button"
-              className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 relative outline-none"
-              aria-label="Notifications"
-            >
-              <Bell size={16} />
-              <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 border border-white rounded-full" />
-            </button>
-
+  type="button"
+  onClick={() => navigate('/admin/notifications')}
+  className="p-2 text-slate-400 hover:text-emerald-600 rounded-full hover:bg-emerald-50 relative outline-none transition-colors"
+  aria-label="Notifications"
+  title="Notifications Center"
+>
+  <Bell size={16} />
+  <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 border border-white rounded-full" />
+</button>
 {/* Desktop admin info */}
 <div className="hidden md:flex items-center gap-1.5 pl-2 border-l border-slate-200">
   

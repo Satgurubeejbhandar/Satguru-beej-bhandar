@@ -47,6 +47,8 @@ import BankAccountsMaster from './pages/admin/BankAccountsMaster'
 import CompanyPurchaseReturn from './pages/admin/CompanyPurchaseReturn'
 import AdminFarmerView from './pages/admin/AdminFarmerView'
 
+
+
 /* Safe loader: file ho to load, na ho to placeholder */
 function Placeholder({ title }: { title: string }) {
   return (
@@ -192,6 +194,7 @@ const FarmerWiseSales = lazyPage(() => import('./pages/admin/FarmerWiseSales'), 
 const ShopContactCardPage = lazyPage(() => import('./pages/admin/ShopContactCard'), 'Shop Contact Card')
 const Letterpad = lazyPage(() => import('./pages/admin/Letterpad'), 'Letterpads')
 const TodayPaymentSales = lazyPage(() => import('./pages/admin/TodayPaymentSales'), 'Today Payment Sales')
+const BahiKhata = lazyPage(() => import('./pages/admin/BahiKhata'), 'Bahi Khata')
 
 function ShopContactCardFallback() {
   return (
@@ -241,12 +244,7 @@ function PublicWebsite() {
   }, [page])
 
   return (
-    <div className="min-h-screen bg-amber-50/20">
-      <div className="bg-red-600 text-white font-bold text-center py-2 px-3 text-xs md:text-sm sticky top-0 z-40 shadow-md">
-        ⚠️ महत्वपूर्ण: डिस्काउंट सिर्फ <strong>दवाइयों और टॉनिक</strong> पर है।{' '}
-        <strong>बीज और खाद पर कोई छूट नहीं।</strong>
-      </div>
-
+    <div className="">
       <Navbar
         page={page as PageKey}
         onNavigate={navigate as any}
@@ -450,6 +448,7 @@ export default function App() {
             <Route path="steps-index/*" element={<StepsIndex />} />
             <Route path="version/*" element={<AppVersion />} />
             <Route path="farmer-view/*" element={<AdminFarmerView />} />
+            <Route path="bahi-khata" element={<BahiKhata />} />
 
             <Route path="*" element={<AdminOverview />} />
           </Route>

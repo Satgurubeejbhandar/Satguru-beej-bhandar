@@ -2,36 +2,22 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { NAV_ITEMS, SHOP, waLink } from "../data/content";
 import { Icon, Ticker, WheatEar } from "./Shared";
-import { ShieldCheck, UserCheck, User, LogOut, Lock } from "lucide-react";
+import { ShieldCheck, UserCheck, User, LogOut, HandCoins } from "lucide-react";
 
 const TICKER_ITEMS = [
-  "सरसों ₹6,550/क्विंटल",
-  "गेहूं ₹2,650",
-  "चना ₹5,650",
-  "ग्वार ₹5,400",
-  "मूंग ₹7,700",
-  "बाजरा ₹2,650",
-  "तिल ₹12,000",
-  "कपास ₹6,900-7,050",
-  "जीरा ₹20,800",
+  "सरसों ₹6,xxx/क्विंटल",
+  "गेहूं ₹2,xxx/क्विंटल",
+  "चना ₹5,xxx/क्विंटल",
+  "ग्वार ₹5,xxx/क्विंटल",
+  "मूंग ₹8,xxx/क्विंटल",
+  "बाजरा ₹2,xxx/क्विंटल",
+  "तिल ₹12,xxx/क्विंटल",
+  "कपास ₹8,xxx-,105x/क्विंटal",
+  "जीरा ₹20,xxx/क्विंटल",
   "ताजा भाव हेतु कॉल करें: 79889 50257",
 ];
 
-const productsIdx = NAV_ITEMS.findIndex((item) => item.key === "products");
-const UDHAAR_NAV_ITEM = {
-  key: "udhaar" as any,
-  label: "किसान उधार कार्ड",
-  icon: "CreditCard",
-};
-
-const FINAL_NAV_ITEMS =
-  productsIdx !== -1
-    ? [
-        ...NAV_ITEMS.slice(0, productsIdx + 1),
-        UDHAAR_NAV_ITEM,
-        ...NAV_ITEMS.slice(productsIdx + 1),
-      ]
-    : [...NAV_ITEMS, UDHAAR_NAV_ITEM];
+const FINAL_NAV_ITEMS = NAV_ITEMS;
 
 interface NavbarProps {
   page: any;
@@ -96,7 +82,7 @@ export const Navbar = ({
     }
   };
 
-  // ========== USER BADGE (Sirf Admin ko "बदलें" dikhega) ==========
+  // ========== USER BADGE ==========
   const UserBadge = () => {
     if (!userRole) return null;
 
@@ -178,15 +164,21 @@ export const Navbar = ({
                   }`}
                 >
                   {n.label}
-                  {n.key === "udhaar" && (userRole === "guest" || !userRole) && (
-                    <Lock size={12} className="text-gold-400" />
-                  )}
                 </button>
               ))}
             </nav>
 
             {/* actions */}
             <div className="flex items-center gap-2.5">
+              {/* मुख्य किसान उधार पोर्टल बटन */}
+              <button
+                onClick={() => handleNavClick("udhaar")}
+                className="inline-flex items-center gap-1.5 rounded-full bg-gold-400 hover:bg-gold-300 text-pine-950 font-chunk font-bold text-xs md:text-sm px-3.5 py-2 shadow-md shadow-gold-500/20 transition-all transform hover:scale-105 active:scale-95 shrink-0"
+              >
+                <HandCoins size={16} />
+                <span className="whitespace-nowrap">किसान उधार पोर्टल</span>
+              </button>
+
               {/* DESKTOP USER BADGE */}
               <div className="hidden lg:block">
                 <UserBadge />
@@ -244,10 +236,12 @@ export const Navbar = ({
                 </button>
               </div>
 
-              {/* MOBILE USER BADGE */}
-              <div className="px-5 py-3 border-b border-cream/5 flex justify-center">
-                <UserBadge />
-              </div>
+              {/* MOBILE USER BADGE (तभी जगह घेरेगा जब यूजर लॉगिन होगा) */}
+              {userRole && (
+                <div className="px-5 py-3 border-b border-cream/5 flex justify-center">
+                  <UserBadge />
+                </div>
+              )}
 
               {/* scrollable links */}
               <nav
@@ -275,20 +269,9 @@ export const Navbar = ({
                               : "bg-cream/10 text-gold-300"
                           }`}
                         >
-                          {n.key === "udhaar" && (userRole === "guest" || !userRole) ? (
-                            <Lock size={19} />
-                          ) : (
-                            <Icon name={n.icon || "CreditCard"} size={19} />
-                          )}
+                          <Icon name={n.icon || "Sprout"} size={19} />
                         </span>
-                        <span className="display-xl text-xl flex items-center gap-2">
-                          {n.label}
-                          {n.key === "udhaar" && (userRole === "guest" || !userRole) && (
-                            <span className="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full font-sans">
-                              Locked
-                            </span>
-                          )}
-                        </span>
+                        <span className="display-xl text-xl">{n.label}</span>
                         <Icon name="ChevronRight" className="ml-auto opacity-50" size={18} />
                       </button>
                     </motion.li>
