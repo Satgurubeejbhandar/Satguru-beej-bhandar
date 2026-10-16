@@ -2886,8 +2886,62 @@ export default function BillingPOS() {
             background: '#ffffff',
           }}
         >
-          <div id="pos-printable-area" className="bg-white">
-            {createdBill && <SalesBillTemplate bill={createdBill} />}
+          <div
+            id="pos-printable-area"
+            className="bg-white"
+            style={{ position: 'relative', isolation: 'isolate' }}
+          >
+            {createdBill && (
+              <>
+                <SalesBillTemplate bill={createdBill} />
+                {/*
+                  Payment-mode watermark is part of the printable DOM itself,
+                  so it appears both in the on-screen bill preview/capture and
+                  in the PDF generated from #pos-printable-area.
+                */}
+                <div
+                  aria-hidden="true"
+                  className="pos-payment-watermark"
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 1000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    pointerEvents: 'none',
+                    userSelect: 'none',
+                    background: 'transparent',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'block',
+                      whiteSpace: 'nowrap',
+                      transform: 'rotate(-32deg)',
+                      fontSize: 'clamp(42px, 8vw, 84px)',
+                      lineHeight: 1,
+                      fontWeight: 900,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      color: (String(createdBill.bill_type || 'udhaar').toLowerCase() === 'cash' ||
+                        String(createdBill.bill_type || '').toLowerCase() === 'nagad')
+                        ? '#059669'
+                        : '#d97706',
+                      opacity: 0.15,
+                      textAlign: 'center',
+                      textShadow: 'none',
+                    }}
+                  >
+                    {(String(createdBill.bill_type || 'udhaar').toLowerCase() === 'cash' ||
+                      String(createdBill.bill_type || '').toLowerCase() === 'nagad')
+                      ? 'NAGAD'
+                      : 'UDHAR'}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -786,7 +786,58 @@ export default function PrintableBill() {
     <div className="space-y-4 sm:space-y-6 printable-bill-page p-3 sm:p-4 max-w-7xl mx-auto">
 
       <style>{`
+/* UDHAR / CASH WATERMARK */
 
+#bill-payment-watermark {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  z-index: 20 !important;
+  background: transparent !important;
+}
+
+#bill-payment-watermark .watermark-text {
+  display: block !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: clamp(36px, 10vw, 100px) !important;
+  font-weight: 900 !important;
+  letter-spacing: 5px !important;
+  white-space: nowrap !important;
+  transform: rotate(-35deg) !important;
+  opacity: 0.13 !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  background: transparent !important;
+}
+
+#bill-payment-watermark.watermark-udhar .watermark-text {
+  color: #d97706 !important;
+}
+
+#bill-payment-watermark.watermark-cash .watermark-text {
+  color: #15803d !important;
+}
+
+@media print {
+  #bill-payment-watermark {
+    display: flex !important;
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #bill-payment-watermark .watermark-text {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
         /* GLOBAL PRINTABLE BILL */
 
         #printable-bill-area {
@@ -1377,13 +1428,45 @@ export default function PrintableBill() {
       {!loadingBillDetails && billData && (
         <div className="printable-bill-wrapper w-full overflow-x-auto print:overflow-visible pb-4">
           <div
-            id="printable-bill-area"
-            className={`bg-white ${
-              printSize === 'A4' ? 'print-size-a4' : 'print-size-a5'
-            }`}
-          >
-            <SalesBillTemplate bill={billData} />
-          </div>
+  id="printable-bill-area"
+  className={`bg-white ${
+    printSize === 'A4' ? 'print-size-a4' : 'print-size-a5'
+  }`}
+  style={{
+    position: 'relative',
+    isolation: 'isolate',
+  }}
+>
+  {/* UDHAR / CASH WATERMARK */}
+  {(() => {
+    const paymentType = String(billData.bill_type || '')
+      .trim()
+      .toLowerCase()
+
+    const isCash = ['cash', 'cash', 'cash'].includes(paymentType)
+    const isUdhar = ['udhaar', 'udhar', 'credit'].includes(paymentType)
+
+    if (!isCash && !isUdhar) return null
+
+    return (
+      <div
+        id="bill-payment-watermark"
+        className={
+          isCash
+            ? 'watermark-cash'
+            : 'watermark-udhar'
+        }
+        aria-hidden="true"
+      >
+        <span className="watermark-text">
+          {isCash ? 'CASH' : 'UDHAR'}
+        </span>
+      </div>
+    )
+  })()}
+
+  <SalesBillTemplate bill={billData} />
+</div>
         </div>
       )}
     </div>

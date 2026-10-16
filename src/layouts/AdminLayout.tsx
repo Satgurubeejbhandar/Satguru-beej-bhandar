@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, type FC } from 'reac
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useAdminSessionGuard } from '../lib/useAdminSessionGuard'
+import { UserSearch } from 'lucide-react';
 import {
   Users, Receipt, Package, Truck, BarChart3, Settings, ShieldCheck,
   LogOut, Menu, X, Bell, AlertTriangle, Store, Building2, IndianRupee,
@@ -143,6 +144,7 @@ const NAV_CATEGORIES: readonly NavCategory[] = [
     icon: BarChart3,
     items: [
       { name: 'Purchase Register', path: '/admin/purchase-register', icon: Clipboard },
+      { name: 'Today Payment Sales', path: '/admin/today-payment-sales', icon: IndianRupee },
       { name: 'Sales Register', path: '/admin/sales-register', icon: ScrollText },
       { name: 'Daily Sales', path: '/admin/daily-sales', icon: CalendarDays },
       { name: 'Monthly Sales', path: '/admin/monthly-sales', icon: CalendarRange },
@@ -464,7 +466,7 @@ const AdminLayout: FC = () => {
 
           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             <span className="hidden lg:inline-flex px-2 py-0.5 bg-amber-100 text-amber-950 text-[9px] font-black rounded border border-amber-200 uppercase">
-              PRO v1.0
+              PROv1.0 Elite (Made by Md verma)
             </span>
 
             <div className="hidden sm:flex items-center gap-1 px-1.5 py-1 bg-amber-50 text-amber-900 text-[9px] font-bold rounded-md border border-amber-200">
@@ -481,27 +483,39 @@ const AdminLayout: FC = () => {
               <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 border border-white rounded-full" />
             </button>
 
-            {/* Desktop admin info */}
-            <div className="hidden md:flex items-center gap-1.5 pl-2 border-l border-slate-200">
-              <div className="text-right">
-                <p className="font-bold text-[10px] text-emerald-950">Admin</p>
-                <p
-                  className="text-[8px] text-slate-500 truncate max-w-[110px]"
-                  title={user?.email ?? undefined}
-                >
-                  {user?.email ?? 'session'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg outline-none"
-                title="Log Out"
-                aria-label="Log Out"
-              >
-                <LogOut size={15} />
-              </button>
-            </div>
+{/* Desktop admin info */}
+<div className="hidden md:flex items-center gap-1.5 pl-2 border-l border-slate-200">
+  
+  {/* ⬇️ नया बटन यहाँ जोड़ा गया है ⬇️ */}
+  <button
+    type="button"
+    onClick={() => navigate('/admin/farmer-view')}
+    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-all font-bold text-[10px] mr-1"
+  >
+    <UserSearch size={14} />
+    Farmer Ledger
+  </button>
+  {/* ⬆️ ----------------------- ⬆️ */}
+
+  <div className="text-right">
+    <p className="font-bold text-[10px] text-emerald-950">Admin</p>
+    <p
+      className="text-[8px] text-slate-500 truncate max-w-[110px]"
+      title={user?.email ?? undefined}
+    >
+      {user?.email ?? 'session'}
+    </p>
+  </div>
+  <button
+    type="button"
+    onClick={handleLogout}
+    className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg outline-none"
+    title="Log Out"
+    aria-label="Log Out"
+  >
+    <LogOut size={15} />
+  </button>
+</div>
 
             {/* Mobile hamburger */}
             <button

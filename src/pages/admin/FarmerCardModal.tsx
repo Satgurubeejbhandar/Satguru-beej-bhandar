@@ -292,7 +292,7 @@ export default function FarmerCardModal({ farmer, onClose }: Props) {
               {/* Footer Strip */}
               <div className="absolute bottom-0 w-full px-5 py-1.5 flex items-center justify-between" style={{ background: 'rgba(0,0,0,0.4)' }}>
                 <p className="text-emerald-400 text-[8px] font-medium">📅 Repayment: {repaymentDays} Days</p>
-                <p className="text-emerald-500 text-[8px] italic">Aapki Fasal, Hamari Saaf Niyat</p>
+                <p className="text-emerald-500 text-[8px] italic">आपकी फसल, हमारी सुरक्षा</p>
               </div>
             </div>
 

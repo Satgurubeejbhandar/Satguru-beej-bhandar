@@ -374,7 +374,7 @@ function FrontCard({ farmer }: { farmer: Farmer }) {
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
           <Calendar size={8} /> Repayment: {Number(farmer.repayment_days) || 90} Days
         </span>
-        <span>Aapki Fasal, Hamari Saaf Niyat</span>
+        <span>आपकी फसल, हमारी सुरक्षा</span>
       </div>
     </div>
   )
@@ -530,7 +530,7 @@ function BackCard() {
       {/* Footer Tagline */}
       <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
         <div style={{ fontSize: 7.5, color: '#059669', fontWeight: 700, lineHeight: 1 }}>
-          Aapki Fasal, Hamari Saaf Niyat, Salah aur Suraksha
+          आपकी फसल, हमारी साफ नीयत, सलाह और सुरक्षा
         </div>
         <div style={{ fontSize: 11, color: '#022c22', fontWeight: 900, letterSpacing: 1, marginTop: 2, lineHeight: 1 }}>
           JAI JAWAN JAI KISAN

@@ -19,7 +19,10 @@ import {
   Loader2,
   Download,
   ExternalLink,
-  Receipt
+  Receipt,
+  Building2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 
 interface CreditAccount {
@@ -40,7 +43,9 @@ interface Farmer {
   aadhaar_number?: string
   credit_limit?: number
   repayment_days?: number
+  opening_balance?: number
   outstanding_balance?: number
+  total_khata_balance?: number
   photo_url?: string | null
   credit_accounts?: CreditAccount[] | CreditAccount | null
   [key: string]: unknown
@@ -207,6 +212,9 @@ export default function FarmerPortal() {
   const [dbOutstanding, setDbOutstanding] = useState(0)
   const [dbAvailable, setDbAvailable] = useState(0)
 
+  // Toggle State for Nagad Bills
+  const [showNagadBills, setShowNagadBills] = useState(false)
+
   // Attachment Viewer Modal (Physical Bills)
   const [previewModalOpen, setPreviewModalOpen] = useState<boolean>(false)
   const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null)
@@ -294,23 +302,38 @@ export default function FarmerPortal() {
         }
 
         setFarmer(farmerObj)
-        setBills(Array.isArray(b.bills) ? b.bills : [])
-        setPhysicalBills(Array.isArray(b.physical_bills) ? b.physical_bills : [])
-        setPayments(Array.isArray(b.payments) ? b.payments : [])
-        setReturnsList(Array.isArray(b.returns) ? b.returns : [])
+        const loadedBills = Array.isArray(b.bills) ? b.bills : []
+        const loadedPhysical = Array.isArray(b.physical_bills) ? b.physical_bills : []
+        const loadedPayments = Array.isArray(b.payments) ? b.payments : []
+        const loadedReturns = Array.isArray(b.returns) ? b.returns : []
+
+        setBills(loadedBills)
+        setPhysicalBills(loadedPhysical)
+        setPayments(loadedPayments)
+        setReturnsList(loadedReturns)
+
+        // ══════════ ACCURATE OUTSTANDING CALCULATION (Front-end Safeguard) ══════════
+        const opBal = safeNumber(farmerObj.opening_balance)
+        const totalUdhaarDigital = loadedBills
+          .filter((x) => x.bill_type === 'udhaar')
+          .reduce((s, x) => s + safeNumber(x.total_amount), 0)
+
+        const totalUdhaarPhysical = loadedPhysical
+          .filter((x) => x.transaction_type === 'udhaar')
+          .reduce((s, x) => s + safeNumber(x.bill_amount), 0)
+
+        const totalPaid = loadedPayments.reduce((s, x) => s + safeNumber(x.payment_amount), 0)
+        const totalRet = loadedReturns.reduce((s, x) => s + safeNumber(x.total_amount), 0)
+
+        const calculatedOutstanding = round2(
+          (opBal + totalUdhaarDigital + totalUdhaarPhysical) - (totalPaid + totalRet)
+        )
 
         const acc = pickCreditAccount(farmerObj, b.credit_account)
-        const outstandingVal = round2(
-          safeNumber(acc?.current_outstanding ?? farmerObj.outstanding_balance)
-        )
         const limitVal = round2(safeNumber(acc?.credit_limit ?? farmerObj.credit_limit))
-        const availableVal = round2(
-          acc?.available_credit !== undefined && acc?.available_credit !== null
-            ? safeNumber(acc.available_credit)
-            : Math.max(0, limitVal - outstandingVal)
-        )
+        const availableVal = round2(Math.max(0, limitVal - calculatedOutstanding))
 
-        setDbOutstanding(outstandingVal)
+        setDbOutstanding(calculatedOutstanding)
         setDbAvailable(availableVal)
       } catch (err: unknown) {
         if (signal?.aborted) return
@@ -336,7 +359,7 @@ export default function FarmerPortal() {
     }
   }, [loadFarmerPortal])
 
-  // Maintenance heartbeat
+  // Maintenance Heartbeat (Security Interval - checks every 15s)
   useEffect(() => {
     const maintenanceInterval = setInterval(async () => {
       try {
@@ -438,12 +461,14 @@ export default function FarmerPortal() {
     ? safeNumber(pickCreditAccount(farmer)?.credit_limit ?? farmer.credit_limit)
     : 0
 
+  const openingBalance = farmer ? safeNumber(farmer.opening_balance) : 0
+
   const maskedAadhaar =
     farmer?.aadhaar_number && farmer.aadhaar_number.length >= 12
       ? `XXXX-XXXX-${farmer.aadhaar_number.slice(-4)}`
       : 'Not Registered'
 
-  // Segregate Digital & Physical Bills
+  // Segregate Digital & Physical Bills (Udhaar vs Cash)
   const udhaarDigitalBills = useMemo(
     () => bills.filter((b) => b.bill_type === 'udhaar'),
     [bills]
@@ -471,7 +496,7 @@ export default function FarmerPortal() {
     () => udhaarPhysicalBills.reduce((s, pb) => s + safeNumber(pb.bill_amount), 0),
     [udhaarPhysicalBills]
   )
-  const totalUdhaarCombined = totalUdhaarDigital + totalUdhaarPhysical
+  const totalUdhaarCombined = openingBalance + totalUdhaarDigital + totalUdhaarPhysical
 
   const totalCashDigital = useMemo(
     () => cashDigitalBills.reduce((s, b) => s + safeNumber(b.total_amount), 0),
@@ -611,11 +636,19 @@ export default function FarmerPortal() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+        {/* 4 Financial Metric Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div className="bg-emerald-900/60 p-3 rounded-2xl border border-emerald-800">
             <p className="text-emerald-300 text-[10px]">क्रेडिट सीमा (Credit Limit)</p>
             <p className="text-amber-400 font-black text-base mt-0.5 font-mono">
               {formatCurrency(limit)}
+            </p>
+          </div>
+
+          <div className="bg-emerald-900/60 p-3 rounded-2xl border border-emerald-800">
+            <p className="text-emerald-300 text-[10px]">ओपनिंग बैलेंस (Opening Bal.)</p>
+            <p className="text-amber-300 font-black text-base mt-0.5 font-mono">
+              {formatCurrency(openingBalance)}
             </p>
           </div>
 
@@ -626,7 +659,7 @@ export default function FarmerPortal() {
             </p>
           </div>
 
-          <div className="bg-emerald-900/60 p-3 rounded-2xl border border-emerald-800 col-span-2 sm:col-span-1">
+          <div className="bg-emerald-900/60 p-3 rounded-2xl border border-emerald-800">
             <p className="text-emerald-300 text-[10px]">उपलब्ध क्रेडिट (Available)</p>
             <p className="text-emerald-400 font-black text-base mt-0.5 font-mono">
               {formatCurrency(dbAvailable)}
@@ -650,27 +683,48 @@ export default function FarmerPortal() {
             <History className="text-amber-500" size={20} /> लेनदेन इतिहास (Transaction History)
           </h3>
           <p className="text-[10px] text-gray-500 font-bold">
-            (यह केवल बिल और भुगतानों की सूची है। ब्याज, ओपनिंग बैलेंस या कैशबैक सीधे मुख्य बकाया में जुड़ता है)
+            (यह केवल बिल और भुगतानों की सूची है। ब्याज या कैशबैक सीधे मुख्य बकाया में जुड़ता है)
           </p>
         </div>
 
         <div className="space-y-6">
-          {/* ══════════ 1. UDHAAR (उधारी) BILLS SECTION ══════════ */}
+          {/* ══════════ 1. UDHAAR & OPENING BALANCE SECTION ══════════ */}
           <div>
             <div className="flex items-center justify-between border-l-4 border-rose-500 bg-rose-50/70 pl-3 pr-3 py-2 rounded-lg mb-3">
               <h4 className="font-black text-xs text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
-                <FileText size={14} className="text-rose-700" /> उधारी बिल (Udhaar Bills)
+                <FileText size={14} className="text-rose-700" /> उधारी खाता (Udhaar & Opening Balance)
               </h4>
               <div className="text-right">
-                <p className="text-[9px] font-bold text-rose-700 uppercase tracking-wider">कुल राशि</p>
+                <p className="text-[9px] font-bold text-rose-700 uppercase tracking-wider">कुल उधारी राशि</p>
                 <p className="font-mono font-black text-rose-800 text-xs">
-                  {formatCurrency(totalUdhaarCombined)} ({udhaarDigitalBills.length + udhaarPhysicalBills.length})
+                  {formatCurrency(totalUdhaarCombined)}
                 </p>
               </div>
             </div>
 
             <div className="space-y-2.5 text-xs">
-              {udhaarDigitalBills.length === 0 && udhaarPhysicalBills.length === 0 ? (
+              {/* Dedicated Opening Balance Display Line */}
+              {openingBalance > 0 && (
+                <div className="p-3.5 rounded-xl border bg-amber-50/80 border-amber-200 flex justify-between items-center shadow-sm">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-amber-950 flex items-center gap-2">
+                      <Building2 size={16} className="text-amber-700 shrink-0" />
+                      <span>ओपनिंग बैलेंस (पुराना बकाया)</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded font-black uppercase bg-amber-200 text-amber-900 border border-amber-300">
+                        OPENING
+                      </span>
+                    </p>
+                    <p className="text-[10px] text-amber-800 mt-0.5 font-medium">
+                      खाता शुरू करते समय का पुराना बकाया
+                    </p>
+                  </div>
+                  <span className="font-black font-mono text-sm text-amber-900 shrink-0">
+                    {formatCurrency(openingBalance)}
+                  </span>
+                </div>
+              )}
+
+              {udhaarDigitalBills.length === 0 && udhaarPhysicalBills.length === 0 && openingBalance === 0 ? (
                 <p className="text-gray-400 italic bg-gray-50 p-4 rounded-xl text-center">
                   कोई उधारी बिल रिकॉर्ड नहीं मिला।
                 </p>
@@ -803,115 +857,6 @@ export default function FarmerPortal() {
               )}
             </div>
           </div>
-
-          {/* ══════════ 3. NAGAD (नकद) BILLS SECTION ══════════ */}
-          <div className="pt-4 border-t border-gray-100">
-            <div className="flex items-center justify-between border-l-4 border-teal-500 bg-teal-50/70 pl-3 pr-3 py-2 rounded-lg mb-3">
-              <h4 className="font-black text-xs text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Wallet size={14} className="text-teal-700" /> नकद बिल (Nagad / Cash Bills)
-              </h4>
-              <div className="text-right">
-                <p className="text-[9px] font-bold text-teal-700 uppercase tracking-wider">कुल राशि</p>
-                <p className="font-mono font-black text-teal-800 text-xs">
-                  {formatCurrency(totalCashCombined)} ({cashDigitalBills.length + cashPhysicalBills.length})
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2.5 text-xs">
-              {cashDigitalBills.length === 0 && cashPhysicalBills.length === 0 ? (
-                <p className="text-gray-400 italic bg-gray-50 p-4 rounded-xl text-center">
-                  कोई नकद बिल रिकॉर्ड नहीं मिला।
-                </p>
-              ) : (
-                <>
-                  {/* Digital Cash Bills */}
-                  {cashDigitalBills.map((b) => (
-                    <div
-                      key={b.id}
-                      className="p-3.5 rounded-xl border bg-teal-50/40 border-teal-100 hover:bg-teal-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 transition-colors"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-gray-900 flex items-center gap-2 flex-wrap">
-                          <span>Bill No:</span>
-                          <span className="font-mono break-all">{sanitize(b.bill_number)}</span>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-teal-100 text-teal-800 border border-teal-200">
-                            नकद
-                          </span>
-                        </p>
-                        <p className="text-[10px] text-gray-500 mt-1 font-medium">
-                          {formatDate(b.bill_date)} • Items: {safeNumber(b.total_items)}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-3 self-end sm:self-center">
-                        <span className="font-black font-mono text-sm text-teal-700 shrink-0">
-                          {formatCurrency(safeNumber(b.total_amount))}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleViewDigitalBill(b)}
-                          className="px-2.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
-                        >
-                          <Eye size={12} />
-                          <span>सामान देखें</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Physical Cash Paper Bills */}
-                  {cashPhysicalBills.map((pb) => (
-                    <div
-                      key={pb.id}
-                      className="p-3.5 rounded-xl border bg-teal-50/60 border-teal-200 hover:bg-teal-100/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 transition-colors"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-gray-900 flex items-center gap-2 flex-wrap">
-                          <Camera size={14} className="text-teal-700 shrink-0" />
-                          <span>पर्ची बिल:</span>
-                          <span className="font-mono break-all">#{sanitize(pb.bill_number)}</span>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-teal-100 text-teal-800 border border-teal-200">
-                            नकद
-                          </span>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-amber-200 text-amber-900">
-                            PHYSICAL
-                          </span>
-                        </p>
-                        <p className="text-[10px] text-gray-600 mt-1 font-medium">
-                          {formatDate(pb.bill_date)} {pb.notes ? `• ${sanitize(pb.notes)}` : ''}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-3 self-end sm:self-center">
-                        <span className="font-black font-mono text-sm text-teal-700 shrink-0">
-                          {formatCurrency(safeNumber(pb.bill_amount))}
-                        </span>
-                        {pb.file_path ? (
-                          <button
-                            type="button"
-                            onClick={() => handleViewPhysicalAttachment(pb)}
-                            className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[11px] font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
-                          >
-                            <Eye size={12} />
-                            <span>📷 पर्ची</span>
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-gray-400 italic px-2">No Image</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-            {totalCashCombined > 0 && (
-              <p className="text-[10px] text-teal-700 font-bold italic mt-2 pl-1">
-                * नकद बिल आपके उधारी खाते से अलग हैं और तुरंत भुगतान हो चुके हैं।
-              </p>
-            )}
-          </div>
-
           {/* ══════════ 4. RETURNS (सामान वापसी) SECTION ══════════ */}
           <div className="pt-4 border-t border-gray-100">
             <div className="flex items-center justify-between border-l-4 border-purple-500 bg-purple-50/70 pl-3 pr-3 py-2 rounded-lg mb-3">
@@ -961,7 +906,7 @@ export default function FarmerPortal() {
         </div>
       </section>
 
-      {/* ══════════ DIGITAL BILL ITEMS MODAL (इन-पोर्टल बिल विवरण) ══════════ */}
+      {/* ══════════ DIGITAL BILL ITEMS MODAL ══════════ */}
       {billItemsModalOpen && selectedBillHeader && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
@@ -1149,6 +1094,136 @@ export default function FarmerPortal() {
           </div>
         </div>
       )}
+       {/* ══════════ 3. NAGAD (नकद) BILLS SECTION (TOGGLE FEATURE) ══════════ */}
+          <div className="pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => setShowNagadBills(!showNagadBills)}
+              className="w-full flex items-center justify-between p-3.5 bg-gradient-to-r from-teal-50 to-white border border-teal-100 rounded-xl hover:shadow-sm transition-all cursor-pointer group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-teal-100 text-teal-700 rounded-xl group-hover:bg-teal-200 transition-colors">
+                  <Wallet size={18} />
+                </div>
+                <div className="text-left">
+                  <h4 className="font-black text-sm text-teal-900">दुकान से लिया गया नकद सामान</h4>
+                  <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wider">
+                    Cash Purchases (नकद बिल)
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right hidden sm:block">
+                  <p className="font-mono font-black text-teal-800 text-sm">
+                    {formatCurrency(totalCashCombined)}
+                  </p>
+                  <p className="text-[9px] text-teal-600 font-bold">
+                    {cashDigitalBills.length + cashPhysicalBills.length} Bills
+                  </p>
+                </div>
+                <div className="p-1.5 bg-white text-teal-600 rounded-lg shadow-sm border border-teal-100 group-hover:border-teal-300">
+                  {showNagadBills ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </div>
+              </div>
+            </button>
+
+            {showNagadBills && (
+              <div className="mt-4 space-y-2.5 text-xs animate-in slide-in-from-top-2 duration-300">
+                {cashDigitalBills.length === 0 && cashPhysicalBills.length === 0 ? (
+                  <p className="text-gray-400 italic bg-gray-50 p-4 rounded-xl text-center">
+                    कोई नकद बिल रिकॉर्ड नहीं मिला।
+                  </p>
+                ) : (
+                  <>
+                    {/* Digital Cash Bills */}
+                    {cashDigitalBills.map((b) => (
+                      <div
+                        key={b.id}
+                        className="p-3.5 rounded-xl border bg-teal-50/40 border-teal-100 hover:bg-teal-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-gray-900 flex items-center gap-2 flex-wrap">
+                            <span>Bill No:</span>
+                            <span className="font-mono break-all">{sanitize(b.bill_number)}</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-teal-100 text-teal-800 border border-teal-200">
+                              नकद
+                            </span>
+                          </p>
+                          <p className="text-[10px] text-gray-500 mt-1 font-medium">
+                            {formatDate(b.bill_date)} • Items: {safeNumber(b.total_items)}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3 self-end sm:self-center">
+                          <span className="font-black font-mono text-sm text-teal-700 shrink-0">
+                            {formatCurrency(safeNumber(b.total_amount))}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleViewDigitalBill(b)}
+                            className="px-2.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                          >
+                            <Eye size={12} />
+                            <span>सामान देखें</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Physical Cash Paper Bills */}
+                    {cashPhysicalBills.map((pb) => (
+                      <div
+                        key={pb.id}
+                        className="p-3.5 rounded-xl border bg-teal-50/60 border-teal-200 hover:bg-teal-100/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-gray-900 flex items-center gap-2 flex-wrap">
+                            <Camera size={14} className="text-teal-700 shrink-0" />
+                            <span>पर्ची बिल:</span>
+                            <span className="font-mono break-all">#{sanitize(pb.bill_number)}</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-teal-100 text-teal-800 border border-teal-200">
+                              नकद
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-amber-200 text-amber-900">
+                              PHYSICAL
+                            </span>
+                          </p>
+                          <p className="text-[10px] text-gray-600 mt-1 font-medium">
+                            {formatDate(pb.bill_date)} {pb.notes ? `• ${sanitize(pb.notes)}` : ''}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3 self-end sm:self-center">
+                          <span className="font-black font-mono text-sm text-teal-700 shrink-0">
+                            {formatCurrency(safeNumber(pb.bill_amount))}
+                          </span>
+                          {pb.file_path ? (
+                            <button
+                              type="button"
+                              onClick={() => handleViewPhysicalAttachment(pb)}
+                              className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[11px] font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                            >
+                              <Eye size={12} />
+                              <span>📷 पर्ची</span>
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-gray-400 italic px-2">No Image</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {totalCashCombined > 0 && (
+                  <p className="text-[10px] text-teal-700 font-bold italic mt-3 pl-2 border-l-2 border-teal-300">
+                    * ध्यान दें: नकद बिल आपके उधारी खाते से बिल्कुल अलग हैं और इनका भुगतान आप उसी समय कर चुके हैं।
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+
     </div>
   )
 }

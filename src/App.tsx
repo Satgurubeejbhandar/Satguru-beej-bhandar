@@ -45,6 +45,7 @@ import FarmerLedgerView from './pages/admin/FarmerLedgerView'
 import DataResetTool from './pages/admin/DataResetTool'
 import BankAccountsMaster from './pages/admin/BankAccountsMaster'
 import CompanyPurchaseReturn from './pages/admin/CompanyPurchaseReturn'
+import AdminFarmerView from './pages/admin/AdminFarmerView'
 
 /* Safe loader: file ho to load, na ho to placeholder */
 function Placeholder({ title }: { title: string }) {
@@ -190,6 +191,7 @@ const RateOverrideLogs = lazyPage(() => import('./pages/admin/RateOverrideLogs')
 const FarmerWiseSales = lazyPage(() => import('./pages/admin/FarmerWiseSales'), 'Farmer Sales')
 const ShopContactCardPage = lazyPage(() => import('./pages/admin/ShopContactCard'), 'Shop Contact Card')
 const Letterpad = lazyPage(() => import('./pages/admin/Letterpad'), 'Letterpads')
+const TodayPaymentSales = lazyPage(() => import('./pages/admin/TodayPaymentSales'), 'Today Payment Sales')
 
 function ShopContactCardFallback() {
   return (
@@ -438,6 +440,7 @@ export default function App() {
             <Route path="limitations/*" element={<KnownLimitations />} />
             <Route path="debug-tips/*" element={<DebugTips />} />
             <Route path="demo-flow/*" element={<DemoFlowScript />} />
+            <Route path="today-payment-sales/*" element={<TodayPaymentSales />} />
 
             <Route path="e2e/*" element={<E2ESmokeChecklist />} />
             <Route path="quality-gate/*" element={<FinalQualityGate />} />
@@ -446,6 +449,7 @@ export default function App() {
             <Route path="handover/*" element={<ProjectHandover />} />
             <Route path="steps-index/*" element={<StepsIndex />} />
             <Route path="version/*" element={<AppVersion />} />
+            <Route path="farmer-view/*" element={<AdminFarmerView />} />
 
             <Route path="*" element={<AdminOverview />} />
           </Route>
